@@ -1,6 +1,6 @@
 defmodule ExSwagger.Validator do
   defmodule Request do
-    defstruct [:path, :method, :query_params]
+    defstruct [:path, :method, :path_params, :query_params]
   end
 
   def validate(%Request{} = request, schema) do
@@ -20,38 +20,44 @@ defmodule ExSwagger.Validator do
   end
 
   defp validate_method(request, operation) do
-    validate_query_params(request.query_params, operation["parameters"])
+    validate_params(request, operation["parameters"])
   end
 
-  defp validate_query_params(params, parameters) do
-    errors = Enum.flat_map parameters, fn parameter_schema ->
-      validate_query_param(params[parameter_schema["name"]], parameter_schema)
-    end
-
+  defp validate_params(request, parameters) do
+    errors = Enum.flat_map parameters, &(validate_param(request, &1))
     case errors do
       [] -> :ok
       errors -> {:error, errors}
     end
   end
 
-  defp validate_query_param(nil, parameter_schema) do
-    case parameter_schema["required"] do
-      true -> [parameter_missing: parameter_schema["name"]]
+  defp validate_param(%Request{path_params: path_params}, %{"in" => "path"} = parameter) do
+    do_validate_param(path_params[parameter["name"]], parameter)
+  end
+
+  defp validate_param(%Request{query_params: query_params}, %{"in" => "query"} = parameter) do
+    do_validate_param(query_params[parameter["name"]], parameter)
+  end
+
+  defp do_validate_param(nil, parameter) do
+    case parameter["required"] do
+      true -> [parameter_missing: parameter["name"]]
       false -> []
     end
   end
 
-  defp validate_query_param("", parameter_schema) do
-    [empty_parameter: parameter_schema["name"]]
+  defp do_validate_param("", parameter) do
+    [empty_parameter: parameter["name"]]
   end
 
-  defp validate_query_param(value, parameter_schema) do
-    case parse_value(value, parameter_schema["type"]) do
-      :error -> [invalid_parameter_type: parameter_schema["name"]]
+  defp do_validate_param(value, parameter) do
+    case parse_value(value, parameter["type"]) do
+      :error -> [invalid_parameter_type: parameter["name"]]
       _ -> []
     end
   end
 
+  defp parse_value(value, "string") when is_binary(value), do: value
   defp parse_value(value, "number") when is_float(value), do: value
   defp parse_value(value, "number"), do: Float.parse(value)
 end

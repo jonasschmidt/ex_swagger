@@ -6,9 +6,21 @@ defmodule ExSwagger.ValidatorTest do
 
   @schema %{
     "paths" => %{
-      "/products" => %{
+      "/item/{scope}/{item_id}" => %{
         "get" => %{
           "parameters" => [
+            %{
+              "name" => "scope",
+              "in" => "path",
+              "required" => true,
+              "type" => "string"
+            },
+            %{
+              "name" => "item_id",
+              "in" => "path",
+              "required" => true,
+              "type" => "number"
+            },
             %{
               "name" => "latitude",
               "in" => "query",
@@ -36,8 +48,12 @@ defmodule ExSwagger.ValidatorTest do
   }
 
   @request %Request{
-    path: "/products",
+    path: "/item/{scope}/{item_id}",
     method: :get,
+    path_params: %{
+      "scope" => "foo",
+      "item_id" => "123"
+    },
     query_params: %{
       "latitude" => 11.11,
       "longitude" => "22.22"
@@ -54,27 +70,27 @@ defmodule ExSwagger.ValidatorTest do
     assert validate(request, @schema) == {:error, :method_not_allowed}
   end
 
-  test "missing required parameter" do
+  test "missing required query parameter" do
     request = %Request{@request | query_params: %{"latitude" => 11.11}}
     assert validate(request, @schema) == {:error, [parameter_missing: "longitude"]}
   end
 
-  test "empty parameter" do
+  test "empty query parameter" do
     request = %Request{@request | query_params: %{@request.query_params | "longitude" => ""}}
     assert validate(request, @schema) == {:error, [empty_parameter: "longitude"]}
   end
 
-  test "wrong parameter type" do
+  test "wrong query parameter type" do
     request = %Request{@request | query_params: %{@request.query_params | "latitude" => "foo"}}
     assert validate(request, @schema) == {:error, [invalid_parameter_type: "latitude"]}
   end
 
-  test "optional parameter with wrong type" do
+  test "optional query parameter with wrong type" do
     request = %Request{@request | query_params: @request.query_params |> Map.put("optional", "foo")}
     assert validate(request, @schema) == {:error, [invalid_parameter_type: "optional"]}
   end
 
-  test "valid request" do
+  test "valid request with path and query parameters" do
     assert validate(@request, @schema) == :ok
   end
 end
