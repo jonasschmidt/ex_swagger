@@ -41,8 +41,12 @@ defmodule ExSwagger.Validator do
     end
   end
 
-  defp validate_query_param(param, parameter_schema) do
-    case parse_value(param, parameter_schema["type"]) do
+  defp validate_query_param("", parameter_schema) do
+    [empty_parameter: parameter_schema["name"]]
+  end
+
+  defp validate_query_param(value, parameter_schema) do
+    case parse_value(value, parameter_schema["type"]) do
       :error -> [invalid_parameter_type: parameter_schema["name"]]
       _ -> []
     end

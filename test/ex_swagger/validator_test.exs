@@ -22,6 +22,11 @@ defmodule ExSwagger.ValidatorTest do
     assert validate(request, @schema) == {:error, [parameter_missing: "longitude"]}
   end
 
+  test "empty parameter" do
+    request = %Request{@request | query_params: %{@request.query_params | "longitude" => ""}}
+    assert validate(request, @schema) == {:error, [empty_parameter: "longitude"]}
+  end
+
   test "wrong parameter type" do
     request = %Request{@request | query_params: %{@request.query_params | "latitude" => "foo"}}
     assert validate(request, @schema) == {:error, [invalid_parameter_type: "latitude"]}
