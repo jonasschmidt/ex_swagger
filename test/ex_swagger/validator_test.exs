@@ -4,8 +4,45 @@ defmodule ExSwagger.ValidatorTest do
   import ExSwagger.Validator
   alias ExSwagger.Validator.Request
 
-  @schema "test/fixtures/uber.json" |> File.read! |> Poison.decode!
-  @request %Request{path: "/products", method: :get, query_params: %{"latitude" => 11.11, "longitude" => "22.22"}}
+  @schema %{
+    "paths" => %{
+      "/products" => %{
+        "get" => %{
+          "parameters" => [
+            %{
+              "name" => "latitude",
+              "in" => "query",
+              "required" => true,
+              "type" => "number",
+              "format" => "double"
+            },
+            %{
+              "name" => "longitude",
+              "in" => "query",
+              "required" => true,
+              "type" => "number",
+              "format" => "double"
+            },
+            %{
+              "name" => "optional",
+              "in" => "query",
+              "required" => false,
+              "type" => "number"
+            }
+          ]
+        }
+      }
+    }
+  }
+
+  @request %Request{
+    path: "/products",
+    method: :get,
+    query_params: %{
+      "latitude" => 11.11,
+      "longitude" => "22.22"
+    }
+  }
 
   test "wrong path" do
     request = %Request{@request | path: "/foo"}
@@ -13,7 +50,7 @@ defmodule ExSwagger.ValidatorTest do
   end
 
   test "wrong method" do
-    request = %Request{@request | method: :patch}
+    request = %Request{@request | method: :post}
     assert validate(request, @schema) == {:error, :method_not_allowed}
   end
 
@@ -30,6 +67,11 @@ defmodule ExSwagger.ValidatorTest do
   test "wrong parameter type" do
     request = %Request{@request | query_params: %{@request.query_params | "latitude" => "foo"}}
     assert validate(request, @schema) == {:error, [invalid_parameter_type: "latitude"]}
+  end
+
+  test "optional parameter with wrong type" do
+    request = %Request{@request | query_params: @request.query_params |> Map.put("optional", "foo")}
+    assert validate(request, @schema) == {:error, [invalid_parameter_type: "optional"]}
   end
 
   test "valid request" do
