@@ -11,20 +11,20 @@ defmodule ExSwagger.Validator do
     {:error, :path_not_found}
   end
 
-  defp validate_path(request, path_schema) do
-    validate_method(request, path_schema[to_string(request.method)])
+  defp validate_path(request, path_item) do
+    validate_method(request, path_item[to_string(request.method)])
   end
 
   defp validate_method(_request, nil) do
     {:error, :method_not_allowed}
   end
 
-  defp validate_method(request, method_schema) do
-    validate_query_params(request.query_params, method_schema["parameters"])
+  defp validate_method(request, operation) do
+    validate_query_params(request.query_params, operation["parameters"])
   end
 
-  defp validate_query_params(params, parameters_schema) do
-    errors = Enum.flat_map parameters_schema, fn parameter_schema ->
+  defp validate_query_params(params, parameters) do
+    errors = Enum.flat_map parameters, fn parameter_schema ->
       validate_query_param(params[parameter_schema["name"]], parameter_schema)
     end
 
