@@ -19,7 +19,7 @@ defmodule ExSwagger.ValidatorTest do
               "name" => "item_id",
               "in" => "path",
               "required" => true,
-              "type" => "number"
+              "type" => "integer"
             },
             %{
               "name" => "latitude",
@@ -39,7 +39,7 @@ defmodule ExSwagger.ValidatorTest do
               "name" => "optional",
               "in" => "query",
               "required" => false,
-              "type" => "number"
+              "type" => "integer"
             }
           ]
         }
@@ -81,16 +81,33 @@ defmodule ExSwagger.ValidatorTest do
   end
 
   test "wrong query parameter type" do
-    request = %Request{@request | query_params: %{@request.query_params | "latitude" => "foo"}}
+    request = %Request{@request | query_params: %{@request.query_params | "latitude" => "11.11foo"}}
     assert validate(request, @schema) == {:error, [invalid_parameter_type: "latitude"]}
   end
 
   test "optional query parameter with wrong type" do
-    request = %Request{@request | query_params: @request.query_params |> Map.put("optional", "foo")}
+    request = %Request{@request | query_params: @request.query_params |> Map.put("optional", "123foo")}
     assert validate(request, @schema) == {:error, [invalid_parameter_type: "optional"]}
   end
 
+  test "multiple validaton errors" do
+    request = %Request{@request |
+      path_params: %{"item_id" => "bar"},
+      query_params: %{"latitude" => 11.11, "optional" => ""}
+    }
+    assert validate(request, @schema) == {:error, [
+      empty_parameter: "optional",
+      parameter_missing: "longitude",
+      invalid_parameter_type: "item_id",
+      parameter_missing: "scope"
+    ]}
+  end
+
   test "valid request with path and query parameters" do
-    assert validate(@request, @schema) == :ok
+    sanitized_request = %{@request |
+      path_params: %{"scope" => "foo", "item_id" => 123},
+      query_params: %{"latitude" => 11.11, "longitude" => 22.22}
+    }
+    assert validate(@request, @schema) === {:ok, sanitized_request}
   end
 end
