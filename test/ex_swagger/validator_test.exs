@@ -2,7 +2,7 @@ defmodule ExSwagger.ValidatorTest do
   use ExUnit.Case, async: true
 
   import ExSwagger.Validator
-  alias ExSwagger.Validator.Request
+  alias ExSwagger.Request
 
   @schema %{
     "paths" => %{

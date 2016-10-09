@@ -1,9 +1,5 @@
 defmodule ExSwagger.Validator do
-  alias ExSwagger.Schema
-
-  defmodule Request do
-    defstruct [:path, :method, :path_params, :query_params]
-  end
+  alias ExSwagger.{Request, Schema}
 
   defmodule Result do
     defstruct request: nil, errors: []
