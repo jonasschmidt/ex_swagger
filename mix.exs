@@ -28,7 +28,8 @@ defmodule ExSwagger.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:poison, "~> 3.0", only: :test}
+      {:poison, "~> 3.0", only: :test},
+      {:mix_test_watch, "~> 0.2.6", only: [:dev, :test]}
     ]
   end
 end
