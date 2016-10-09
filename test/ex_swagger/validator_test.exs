@@ -7,20 +7,22 @@ defmodule ExSwagger.ValidatorTest do
   @schema %{
     "paths" => %{
       "/item/{scope}/{item_id}" => %{
+        "parameters" => [
+          %{
+            "name" => "scope",
+            "in" => "path",
+            "required" => true,
+            "type" => "string"
+          },
+          %{
+            "name" => "item_id",
+            "in" => "path",
+            "required" => true,
+            "type" => "integer"
+          }
+        ],
         "get" => %{
           "parameters" => [
-            %{
-              "name" => "scope",
-              "in" => "path",
-              "required" => true,
-              "type" => "string"
-            },
-            %{
-              "name" => "item_id",
-              "in" => "path",
-              "required" => true,
-              "type" => "integer"
-            },
             %{
               "name" => "latitude",
               "in" => "query",
@@ -96,10 +98,10 @@ defmodule ExSwagger.ValidatorTest do
       query_params: %{"latitude" => 11.11, "optional" => ""}
     }
     assert validate(request, @schema) == {:error, [
+      parameter_missing: "scope",
       empty_parameter: "optional",
       parameter_missing: "longitude",
       invalid_parameter_type: "item_id",
-      parameter_missing: "scope"
     ]}
   end
 
@@ -109,5 +111,34 @@ defmodule ExSwagger.ValidatorTest do
       query_params: %{"latitude" => 11.11, "longitude" => 22.22}
     }
     assert validate(@request, @schema) === {:ok, sanitized_request}
+  end
+
+  test "Overriding path-global parameter definition on operation level" do
+    schema = %{
+      "paths" => %{
+        "/item" => %{
+          "parameters" => [
+            %{
+              "name" => "limit",
+              "in" => "query",
+              "required" => false,
+              "type" => "integer"
+            }
+          ],
+          "get" => %{
+            "parameters" => [
+              %{
+                "name" => "limit",
+                "in" => "query",
+                "required" => true,
+                "type" => "string"
+              }
+            ]
+          }
+        }
+      }
+    }
+    request = %Request{path: "/item", method: :get, query_params: %{"limit" => "foo"}}
+    assert validate(request, schema) == {:ok, request}
   end
 end

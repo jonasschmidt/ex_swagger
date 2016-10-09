@@ -1,4 +1,6 @@
 defmodule ExSwagger.Validator do
+  alias ExSwagger.Schema
+
   defmodule Request do
     defstruct [:path, :method, :path_params, :query_params]
   end
@@ -8,6 +10,10 @@ defmodule ExSwagger.Validator do
   end
 
   def validate(%Request{} = request, schema) do
+    do_validate(request, Schema.parse(schema))
+  end
+
+  defp do_validate(request, schema) do
     validate_path(request, schema["paths"][request.path])
   end
 
@@ -24,7 +30,7 @@ defmodule ExSwagger.Validator do
   end
 
   defp validate_operation(request, operation) do
-    validate_params(request, operation["parameters"])
+    validate_params(request, Map.values(operation["parameters"]))
   end
 
   defp validate_params(request, parameters) do
