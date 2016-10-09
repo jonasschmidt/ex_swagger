@@ -1,6 +1,6 @@
 # ExSwagger
 
-[![Build Status](https://travis-ci.org/jonasschmidt/ex_swagger.svg?branch=travis)](https://travis-ci.org/jonasschmidt/ex_swagger)
+[![Build Status](https://travis-ci.org/jonasschmidt/ex_swagger.svg?branch=travis)](https://travis-ci.org/jonasschmidt/ex_swagger) [![Coverage Status](https://coveralls.io/repos/github/jonasschmidt/ex_swagger/badge.svg?branch=coveralls)](https://coveralls.io/github/jonasschmidt/ex_swagger?branch=coveralls)
 
 **TODO: Add description**
 
