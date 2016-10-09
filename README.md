@@ -1,5 +1,7 @@
 # ExSwagger
 
+[![Build Status](https://travis-ci.org/jonasschmidt/ex_swagger.svg?branch=travis)](https://travis-ci.org/jonasschmidt/ex_swagger)
+
 **TODO: Add description**
 
 ## Installation
