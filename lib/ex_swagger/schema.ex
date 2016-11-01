@@ -1,4 +1,23 @@
 defmodule ExSwagger.Schema do
+  @parameter_schema_properties ~w(
+    maximum
+    exclusiveMaximum
+    minimum
+    exclusiveMinimum
+    maxLength
+    minLength
+    pattern
+    maxItems
+    minItems
+    uniqueItems
+    enum
+    multipleOf
+  )
+  @empty_parameter_schemata %{
+    path_params: %{"properties" => %{}},
+    query_params: %{"properties" => %{}}
+  }
+
   def parse(%{} = schema) do
     %{schema | "paths" => parse_paths(schema["paths"])}
   end
@@ -12,15 +31,23 @@ defmodule ExSwagger.Schema do
   defp operations_with_path_global_parameters(operations) do
     path_global_parameters = operations["parameters"] || []
     Enum.reduce Map.drop(operations, ["parameters"]), %{}, fn ({path, operation}, operations) ->
-      Map.put(operations, path, %{operation |
-        "parameters" => merge_parameters(path_global_parameters, operation["parameters"])
-      })
+      parameters = merge_parameters(path_global_parameters, operation["parameters"])
+      Map.put(operations, path, Map.merge(operation, %{
+        parameters: parameters,
+        schemata: parameters_to_schema(parameters)
+      }))
     end
   end
 
   defp merge_parameters(global_parameters, parameters) do
     Enum.reduce global_parameters ++ parameters, %{}, fn parameter, acc ->
       Map.put(acc, {parameter["name"], parameter["in"]}, parameter)
+    end
+  end
+
+  defp parameters_to_schema(parameters) do
+    Enum.reduce parameters, @empty_parameter_schemata, fn {{name, in_val}, parameter}, acc ->
+      put_in(acc, [:"#{in_val}_params", "properties", name], Map.take(parameter, @parameter_schema_properties))
     end
   end
 end

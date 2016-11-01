@@ -3,6 +3,8 @@ defmodule ExSwagger.ValidatorTest do
 
   import ExSwagger.Validator
   alias ExSwagger.Request
+  alias ExSwagger.Validator.ParameterError
+  alias ExJsonSchema.Validator.Error, as: ValidationError
 
   @schema %{
     "paths" => %{
@@ -113,7 +115,7 @@ defmodule ExSwagger.ValidatorTest do
     assert validate(@request, @schema) === {:ok, sanitized_request}
   end
 
-  test "Overriding path-global parameter definition on operation level" do
+  test "overriding path-global parameter definition on operation level" do
     schema = %{
       "paths" => %{
         "/item" => %{
@@ -140,5 +142,69 @@ defmodule ExSwagger.ValidatorTest do
     }
     request = %Request{path: "/item", method: :get, query_params: %{"limit" => "foo"}}
     assert validate(request, schema) == {:ok, request}
+  end
+
+  test "schema validation" do
+    schema = %{
+      "paths" => %{
+        "/item" => %{
+          "get" => %{
+            "parameters" => [
+              %{
+                "name" => "maximum",
+                "in" => "query",
+                "type" => "integer",
+                "maximum" => 100
+              },
+              %{
+                "name" => "minimum",
+                "in" => "query",
+                "type" => "integer",
+                "minimum" => 10,
+                "exclusiveMinimum" => true
+              },
+              %{
+                "name" => "max_length",
+                "in" => "query",
+                "type" => "string",
+                "maxLength" => 3
+              },
+              %{
+                "name" => "min_length",
+                "in" => "query",
+                "type" => "string",
+                "minLength" => 3
+              },
+              %{
+                "name" => "pattern",
+                "in" => "query",
+                "type" => "string",
+                "pattern" => "^\\d+$"
+              },
+            ]
+          }
+        }
+      }
+    }
+
+    request = %Request{
+      path: "/item",
+      method: :get,
+      query_params: %{
+        "minimum" => "10",
+        "maximum" => "101",
+        "max_length" => "abcd",
+        "min_length" => "ab",
+        "pattern" => "a1b2c3",
+      }
+    }
+
+    assert validate(request, schema) == {:error, [
+      %ParameterError{error: %ValidationError.MaxLength{expected: 3, actual: 4}, in: :query, parameter: "max_length"},
+      %ParameterError{error: %ValidationError.Maximum{exclusive?: false, expected: 100}, in: :query, parameter: "maximum"},
+      %ParameterError{error: %ValidationError.MinLength{expected: 3, actual: 2}, in: :query, parameter: "min_length"},
+      %ParameterError{error: %ValidationError.Minimum{exclusive?: true, expected: 10}, in: :query, parameter: "minimum"},
+      %ParameterError{error: %ValidationError.Pattern{expected: "^\\d+$"}, in: :query, parameter: "pattern"},
+    ]}
   end
 end

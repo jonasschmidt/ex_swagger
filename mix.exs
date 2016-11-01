@@ -38,6 +38,7 @@ defmodule ExSwagger.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
+      {:ex_json_schema, git: "https://github.com/jonasschmidt/ex_json_schema.git", branch: "validation-errors"},
       {:poison, "~> 3.0", only: :test},
       {:excoveralls, "~> 0.5", only: :test},
       {:mix_test_watch, "~> 0.2.6", only: [:dev, :test]}

@@ -1,8 +1,13 @@
 defmodule ExSwagger.Validator do
   alias ExSwagger.{Request, Schema}
+  alias ExJsonSchema.Validator.Error, as: ValidationError
 
   defmodule Result do
     defstruct request: nil, errors: []
+  end
+
+  defmodule ParameterError do
+    defstruct [:error, :parameter, :in]
   end
 
   def validate(%Request{} = request, schema) do
@@ -26,14 +31,45 @@ defmodule ExSwagger.Validator do
   end
 
   defp validate_operation(request, operation) do
-    validate_params(request, Map.values(operation["parameters"]))
+    validate_params(request, operation)
   end
 
-  defp validate_params(request, parameters) do
+  defp validate_params(request, operation) do
+    parameters = Map.values(operation.parameters)
     result = Enum.reduce(parameters, %Result{request: request}, &(validate_param(&2, &1)))
     case result do
-      %{errors: [], request: request} -> {:ok, request}
-      %{errors: errors} -> {:error, errors}
+      %{errors: [], request: request} ->
+        case validate_request_against_schemata(request, operation.schemata) do
+          [] -> {:ok, request}
+          errors -> {:error, errors}
+        end
+      %{errors: errors, request: request} ->
+        {:error, errors}
+    end
+  end
+
+  defp validate_request_against_schemata(request, schemata) do
+    Enum.flat_map(schemata, &validate_request_against_schema(request, &1))
+  end
+
+  defp validate_request_against_schema(request, {:path_params, schema}) do
+    validate_params_against_schema(request.path_params, schema) |> map_errors(:path)
+  end
+
+  defp validate_request_against_schema(request, {:query_params, schema}) do
+    validate_params_against_schema(request.query_params, schema) |> map_errors(:query)
+  end
+
+  defp validate_params_against_schema(params, schema) do
+    case ExJsonSchema.Validator.validate(schema, params) do
+      :ok -> []
+      {:error, errors} -> errors
+    end
+  end
+
+  defp map_errors(errors, in_) do
+    Enum.map errors, fn %ValidationError{error: error, path: "#/" <> path} ->
+      %ParameterError{error: error, parameter: path, in: in_}
     end
   end
 
