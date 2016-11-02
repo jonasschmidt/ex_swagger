@@ -158,7 +158,7 @@ defmodule ExSwagger.ValidatorTest do
               },
               %{
                 "name" => "minimum",
-                "in" => "query",
+                "in" => "path",
                 "type" => "integer",
                 "minimum" => 10,
                 "exclusiveMinimum" => true
@@ -171,7 +171,7 @@ defmodule ExSwagger.ValidatorTest do
               },
               %{
                 "name" => "min_length",
-                "in" => "query",
+                "in" => "path",
                 "type" => "string",
                 "minLength" => 3
               },
@@ -180,6 +180,18 @@ defmodule ExSwagger.ValidatorTest do
                 "in" => "query",
                 "type" => "string",
                 "pattern" => "^\\d+$"
+              },
+              %{
+                "name" => "enum",
+                "in" => "path",
+                "type" => "string",
+                "enum" => ~w(foo bar)
+              },
+              %{
+                "name" => "multiple_of",
+                "in" => "query",
+                "type" => "integer",
+                "multipleOf" => 2
               },
             ]
           }
@@ -190,20 +202,26 @@ defmodule ExSwagger.ValidatorTest do
     request = %Request{
       path: "/item",
       method: :get,
-      query_params: %{
+      path_params: %{
         "minimum" => "10",
+        "min_length" => "ab",
+        "enum" => "baz",
+      },
+      query_params: %{
         "maximum" => "101",
         "max_length" => "abcd",
-        "min_length" => "ab",
         "pattern" => "a1b2c3",
-      }
+        "multiple_of" => 3,
+      },
     }
 
     assert validate(request, schema) == {:error, [
+      %ParameterError{error: %ValidationError.Enum{}, in: :path, parameter: "enum"},
+      %ParameterError{error: %ValidationError.MinLength{expected: 3, actual: 2}, in: :path, parameter: "min_length"},
+      %ParameterError{error: %ValidationError.Minimum{exclusive?: true, expected: 10}, in: :path, parameter: "minimum"},
       %ParameterError{error: %ValidationError.MaxLength{expected: 3, actual: 4}, in: :query, parameter: "max_length"},
       %ParameterError{error: %ValidationError.Maximum{exclusive?: false, expected: 100}, in: :query, parameter: "maximum"},
-      %ParameterError{error: %ValidationError.MinLength{expected: 3, actual: 2}, in: :query, parameter: "min_length"},
-      %ParameterError{error: %ValidationError.Minimum{exclusive?: true, expected: 10}, in: :query, parameter: "minimum"},
+      %ParameterError{error: %ValidationError.MultipleOf{expected: 2}, in: :query, parameter: "multiple_of"},
       %ParameterError{error: %ValidationError.Pattern{expected: "^\\d+$"}, in: :query, parameter: "pattern"},
     ]}
   end

@@ -84,7 +84,7 @@ defmodule ExSwagger.Validator do
   defp do_validate_param(result, parameter, nil) do
     case parameter["required"] do
       true -> result_with_error(result, :parameter_missing, parameter["name"])
-      false -> result
+      _ -> result
     end
   end
 
