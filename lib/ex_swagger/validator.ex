@@ -103,6 +103,7 @@ defmodule ExSwagger.Validator do
   defp parse_value(value, %{"type" => "number"}) when is_binary(value), do: handle_numeric_parse_result(Float.parse(value))
   defp parse_value(value, %{"type" => "integer"}) when is_integer(value), do: value
   defp parse_value(value, %{"type" => "integer"}) when is_binary(value), do: handle_numeric_parse_result(Integer.parse(value))
+  defp parse_value(value, %{"type" => "array"}) when is_list(value), do: value
   defp parse_value(value, %{"type" => "array"} = parameter) when is_binary(value), do: parse_array(value, parameter["collectionFormat"])
 
   defp parse_array(value, collection_format) when collection_format in [nil, "csv"], do: String.split(value, ",")

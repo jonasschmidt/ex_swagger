@@ -47,11 +47,11 @@ defmodule ExSwagger.Schema do
   end
 
   defp downcase_header_parameter_names(parameters) do
-    parameters |> Enum.map(&downcase_header_parameter_name/1)
+    parameters |> Enum.map(fn
+      %{"in" => "header"} = parameter -> %{parameter | "name" => String.downcase(parameter["name"])}
+      parameter -> parameter
+    end)
   end
-
-  defp downcase_header_parameter_name(%{"in" => "header"} = parameter), do: %{parameter | "name" => String.downcase(parameter["name"])}
-  defp downcase_header_parameter_name(parameter), do: parameter
 
   defp parameters_to_schema(parameters) do
     Enum.reduce parameters, @empty_parameter_schemata, fn %{"name" => name, "in" => in_} = parameter, acc ->

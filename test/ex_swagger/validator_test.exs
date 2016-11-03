@@ -257,30 +257,35 @@ defmodule ExSwagger.ValidatorTest do
           "get" => %{
             "parameters" => [
               %{
-                "name" => "item_ids",
+                "name" => "already_array_ids",
+                "in" => "query",
+                "type" => "array",
+              },
+              %{
+                "name" => "ids",
                 "in" => "query",
                 "type" => "array"
               },
               %{
-                "name" => "csv_item_ids",
+                "name" => "csv_ids",
                 "in" => "query",
                 "type" => "array",
                 "collectionFormat" => "csv"
               },
               %{
-                "name" => "ssv_item_ids",
+                "name" => "ssv_ids",
                 "in" => "query",
                 "type" => "array",
                 "collectionFormat" => "ssv"
               },
               %{
-                "name" => "tsv_item_ids",
+                "name" => "tsv_ids",
                 "in" => "query",
                 "type" => "array",
                 "collectionFormat" => "tsv"
               },
               %{
-                "name" => "pipes_item_ids",
+                "name" => "pipes_ids",
                 "in" => "query",
                 "type" => "array",
                 "collectionFormat" => "pipes"
@@ -295,20 +300,22 @@ defmodule ExSwagger.ValidatorTest do
       path: "/items",
       method: :get,
       query_params: %{
-        "item_ids" => "foo,bar,baz",
-        "csv_item_ids" => "foo,bar,baz",
-        "ssv_item_ids" => "foo bar baz",
-        "tsv_item_ids" => "foo\tbar\tbaz",
-        "pipes_item_ids" => "foo|bar|baz",
+        "already_array_ids" => ~w(foo bar baz),
+        "ids" => "foo,bar,baz",
+        "csv_ids" => "foo,bar,baz",
+        "ssv_ids" => "foo bar baz",
+        "tsv_ids" => "foo\tbar\tbaz",
+        "pipes_ids" => "foo|bar|baz",
       },
     }
 
     assert validate(request, schema) == {:ok, %{request | query_params: %{
-      "item_ids" => ~w(foo bar baz),
-      "csv_item_ids" => ~w(foo bar baz),
-      "ssv_item_ids" => ~w(foo bar baz),
-      "tsv_item_ids" => ~w(foo bar baz),
-      "pipes_item_ids" => ~w(foo bar baz),
+      "ids" => ~w(foo bar baz),
+      "csv_ids" => ~w(foo bar baz),
+      "ssv_ids" => ~w(foo bar baz),
+      "tsv_ids" => ~w(foo bar baz),
+      "pipes_ids" => ~w(foo bar baz),
+      "already_array_ids" => ~w(foo bar baz),
     }}}
   end
 end
