@@ -8,7 +8,7 @@ defmodule ExSwagger.ValidatorTest do
 
   @schema %{
     "paths" => %{
-      "/item/{scope}/{item_id}" => %{
+      "/items/{scope}/{item_id}" => %{
         "parameters" => [
           %{
             "name" => "scope",
@@ -52,7 +52,7 @@ defmodule ExSwagger.ValidatorTest do
   }
 
   @request %Request{
-    path: "/item/{scope}/{item_id}",
+    path: "/items/{scope}/{item_id}",
     method: :get,
     path_params: %{
       "scope" => "foo",
@@ -118,7 +118,7 @@ defmodule ExSwagger.ValidatorTest do
   test "overriding path-global parameter definition on operation level" do
     schema = %{
       "paths" => %{
-        "/item" => %{
+        "/items" => %{
           "parameters" => [
             %{
               "name" => "limit",
@@ -140,14 +140,14 @@ defmodule ExSwagger.ValidatorTest do
         }
       }
     }
-    request = %Request{path: "/item", method: :get, query_params: %{"limit" => "foo"}}
+    request = %Request{path: "/items", method: :get, query_params: %{"limit" => "foo"}}
     assert validate(request, schema) == {:ok, request}
   end
 
   test "schema validation" do
     schema = %{
       "paths" => %{
-        "/item" => %{
+        "/items" => %{
           "get" => %{
             "parameters" => [
               %{
@@ -200,7 +200,7 @@ defmodule ExSwagger.ValidatorTest do
     }
 
     request = %Request{
-      path: "/item",
+      path: "/items",
       method: :get,
       path_params: %{
         "minimum" => "10",
@@ -224,5 +224,67 @@ defmodule ExSwagger.ValidatorTest do
       %ParameterError{error: %ValidationError.MultipleOf{expected: 2}, in: :query, parameter: "multiple_of"},
       %ParameterError{error: %ValidationError.Pattern{expected: "^\\d+$"}, in: :query, parameter: "pattern"},
     ]}
+  end
+
+  test "parsing array parameters" do
+    schema = %{
+      "paths" => %{
+        "/items" => %{
+          "get" => %{
+            "parameters" => [
+              %{
+                "name" => "item_ids",
+                "in" => "query",
+                "type" => "array"
+              },
+              %{
+                "name" => "csv_item_ids",
+                "in" => "query",
+                "type" => "array",
+                "collectionFormat" => "csv"
+              },
+              %{
+                "name" => "ssv_item_ids",
+                "in" => "query",
+                "type" => "array",
+                "collectionFormat" => "ssv"
+              },
+              %{
+                "name" => "tsv_item_ids",
+                "in" => "query",
+                "type" => "array",
+                "collectionFormat" => "tsv"
+              },
+              %{
+                "name" => "pipes_item_ids",
+                "in" => "query",
+                "type" => "array",
+                "collectionFormat" => "pipes"
+              },
+            ]
+          }
+        }
+      }
+    }
+
+    request = %Request{
+      path: "/items",
+      method: :get,
+      query_params: %{
+        "item_ids" => "foo,bar,baz",
+        "csv_item_ids" => "foo,bar,baz",
+        "ssv_item_ids" => "foo bar baz",
+        "tsv_item_ids" => "foo\tbar\tbaz",
+        "pipes_item_ids" => "foo|bar|baz",
+      },
+    }
+
+    assert validate(request, schema) == {:ok, %{request | query_params: %{
+      "item_ids" => ~w(foo bar baz),
+      "csv_item_ids" => ~w(foo bar baz),
+      "ssv_item_ids" => ~w(foo bar baz),
+      "tsv_item_ids" => ~w(foo bar baz),
+      "pipes_item_ids" => ~w(foo bar baz),
+    }}}
   end
 end

@@ -43,7 +43,7 @@ defmodule ExSwagger.Validator do
           [] -> {:ok, request}
           errors -> {:error, errors}
         end
-      %{errors: errors, request: request} ->
+      %{errors: errors, request: _request} ->
         {:error, errors}
     end
   end
@@ -93,17 +93,23 @@ defmodule ExSwagger.Validator do
   end
 
   defp do_validate_param(result, parameter, value) do
-    case parse_value(value, parameter["type"]) do
+    case parse_value(value, parameter) do
       :error -> result_with_error(result, :invalid_parameter_type, parameter["name"])
       value -> overwrite_param(result, parameter, value)
     end
   end
 
-  defp parse_value(value, "string") when is_binary(value), do: value
-  defp parse_value(value, "number") when is_float(value), do: value
-  defp parse_value(value, "number") when is_binary(value), do: handle_numeric_parse_result(Float.parse(value))
-  defp parse_value(value, "integer") when is_integer(value), do: value
-  defp parse_value(value, "integer") when is_binary(value), do: handle_numeric_parse_result(Integer.parse(value))
+  defp parse_value(value, %{"type" => "string"}) when is_binary(value), do: value
+  defp parse_value(value, %{"type" => "number"}) when is_float(value), do: value
+  defp parse_value(value, %{"type" => "number"}) when is_binary(value), do: handle_numeric_parse_result(Float.parse(value))
+  defp parse_value(value, %{"type" => "integer"}) when is_integer(value), do: value
+  defp parse_value(value, %{"type" => "integer"}) when is_binary(value), do: handle_numeric_parse_result(Integer.parse(value))
+  defp parse_value(value, %{"type" => "array"} = parameter) when is_binary(value), do: parse_array(value, parameter["collectionFormat"])
+
+  defp parse_array(value, collection_format) when collection_format in [nil, "csv"], do: String.split(value, ",")
+  defp parse_array(value, "ssv"), do: String.split(value, " ")
+  defp parse_array(value, "tsv"), do: String.split(value, "\t")
+  defp parse_array(value, "pipes"), do: String.split(value, "|")
 
   defp handle_numeric_parse_result(:error), do: :error
   defp handle_numeric_parse_result({value, ""}), do: value
