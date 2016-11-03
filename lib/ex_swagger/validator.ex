@@ -10,7 +10,11 @@ defmodule ExSwagger.Validator do
     defstruct [:error, :parameter, :in]
   end
 
-  def validate(%Request{} = request, schema) do
+  defmodule BodyError do
+    defstruct [:error, :path]
+  end
+
+  def validate(%Request{} = request, %{} = schema) do
     do_validate(request, Schema.parse(schema))
   end
 
@@ -51,9 +55,10 @@ defmodule ExSwagger.Validator do
     Enum.flat_map(schemata, &validate_request_against_schema(request, &1))
   end
 
-  defp validate_request_against_schema(request, {:header_params, schema}), do: validate_params_against_schema(request.header_params, schema) |> map_errors(:header)
-  defp validate_request_against_schema(request, {:path_params, schema}), do: validate_params_against_schema(request.path_params, schema) |> map_errors(:path)
-  defp validate_request_against_schema(request, {:query_params, schema}), do: validate_params_against_schema(request.query_params, schema) |> map_errors(:query)
+  defp validate_request_against_schema(request, {:header_params, schema}), do: validate_params_against_schema(request.header_params, schema) |> map_parameter_errors(:header)
+  defp validate_request_against_schema(request, {:path_params, schema}), do: validate_params_against_schema(request.path_params, schema) |> map_parameter_errors(:path)
+  defp validate_request_against_schema(request, {:query_params, schema}), do: validate_params_against_schema(request.query_params, schema) |> map_parameter_errors(:query)
+  defp validate_request_against_schema(request, {:body, schema}), do: validate_params_against_schema(request.body, schema) |> map_body_errors
 
   defp validate_params_against_schema(params, schema) do
     case ExJsonSchema.Validator.validate(schema, params) do
@@ -62,10 +67,14 @@ defmodule ExSwagger.Validator do
     end
   end
 
-  defp map_errors(errors, in_) do
+  defp map_parameter_errors(errors, in_) do
     Enum.map errors, fn %ValidationError{error: error, path: "#/" <> path} ->
       %ParameterError{error: error, parameter: path, in: in_}
     end
+  end
+
+  defp map_body_errors(errors) do
+    Enum.map errors, fn %ValidationError{} = error -> %BodyError{error: error.error, path: error.path} end
   end
 
   defp validate_param(%Result{request: %Request{header_params: header_params}} = result, %{"in" => "header"} = parameter) do
@@ -79,6 +88,8 @@ defmodule ExSwagger.Validator do
   defp validate_param(%Result{request: %Request{query_params: query_params}} = result, %{"in" => "query"} = parameter) do
     do_validate_param(result, parameter, query_params[parameter["name"]])
   end
+
+  defp validate_param(%Result{request: %Request{body: _body}} = result, %{"in" => "body"}), do: result
 
   defp do_validate_param(result, parameter, nil) do
     case parameter["required"] do

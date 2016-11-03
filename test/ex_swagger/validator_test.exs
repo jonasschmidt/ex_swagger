@@ -3,7 +3,7 @@ defmodule ExSwagger.ValidatorTest do
 
   import ExSwagger.Validator
   alias ExSwagger.Request
-  alias ExSwagger.Validator.ParameterError
+  alias ExSwagger.Validator.{ParameterError, BodyError}
   alias ExJsonSchema.Validator.Error, as: ValidationError
 
   @schema %{
@@ -168,7 +168,7 @@ defmodule ExSwagger.ValidatorTest do
     assert validate(request, schema) == {:ok, request}
   end
 
-  test "schema validation" do
+  test "parameter validation" do
     schema = %{
       "paths" => %{
         "/items" => %{
@@ -182,7 +182,7 @@ defmodule ExSwagger.ValidatorTest do
               },
               %{
                 "name" => "minimum",
-                "in" => "path",
+                "in" => "header",
                 "type" => "integer",
                 "minimum" => 10,
                 "exclusiveMinimum" => true
@@ -226,8 +226,10 @@ defmodule ExSwagger.ValidatorTest do
     request = %Request{
       path: "/items",
       method: :get,
-      path_params: %{
+      header_params: %{
         "minimum" => "10",
+      },
+      path_params: %{
         "min_length" => "ab",
         "enum" => "baz",
       },
@@ -240,9 +242,9 @@ defmodule ExSwagger.ValidatorTest do
     }
 
     assert validate(request, schema) == {:error, [
+      %ParameterError{error: %ValidationError.Minimum{exclusive?: true, expected: 10}, in: :header, parameter: "minimum"},
       %ParameterError{error: %ValidationError.Enum{}, in: :path, parameter: "enum"},
       %ParameterError{error: %ValidationError.MinLength{expected: 3, actual: 2}, in: :path, parameter: "min_length"},
-      %ParameterError{error: %ValidationError.Minimum{exclusive?: true, expected: 10}, in: :path, parameter: "minimum"},
       %ParameterError{error: %ValidationError.MaxLength{expected: 3, actual: 4}, in: :query, parameter: "max_length"},
       %ParameterError{error: %ValidationError.Maximum{exclusive?: false, expected: 100}, in: :query, parameter: "maximum"},
       %ParameterError{error: %ValidationError.MultipleOf{expected: 2}, in: :query, parameter: "multiple_of"},
@@ -317,5 +319,45 @@ defmodule ExSwagger.ValidatorTest do
       "pipes_ids" => ~w(foo bar baz),
       "already_array_ids" => ~w(foo bar baz),
     }}}
+  end
+
+  test "body validation" do
+    schema = %{
+      "paths" => %{
+        "/items" => %{
+          "post" => %{
+            "parameters" => [
+              %{
+                "name" => "body",
+                "in" => "body",
+                "required" => true,
+                "schema" => %{
+                  "type" => "object",
+                  "required" => ["foo", "bar"],
+                  "properties" => %{
+                    "foo" => %{
+                      "type" => "string"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+
+    request = %Request{
+      path: "/items",
+      method: :post,
+      body: %{
+        "foo" => 123
+      },
+    }
+
+    assert validate(request, schema) == {:error, [
+      %BodyError{error: %ValidationError.Type{actual: "Integer", expected: ["String"]}, path: "#/foo"},
+      %BodyError{error: %ValidationError.Required{missing: ["bar"]}, path: "#"}
+    ]}
   end
 end
