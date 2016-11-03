@@ -8,10 +8,10 @@ defmodule ExSwagger.ValidatorTest do
 
   @schema %{
     "paths" => %{
-      "/items/{scope}/{item_id}" => %{
+      "/items/{SCOPE}/{item_id}" => %{
         "parameters" => [
           %{
-            "name" => "scope",
+            "name" => "SCOPE",
             "in" => "path",
             "required" => true,
             "type" => "string"
@@ -21,12 +21,18 @@ defmodule ExSwagger.ValidatorTest do
             "in" => "path",
             "required" => true,
             "type" => "integer"
-          }
+          },
+          %{
+            "name" => "X-Request-Id",
+            "in" => "header",
+            "required" => true,
+            "type" => "string"
+          },
         ],
         "get" => %{
           "parameters" => [
             %{
-              "name" => "latitude",
+              "name" => "Latitude",
               "in" => "query",
               "required" => true,
               "type" => "number",
@@ -44,7 +50,7 @@ defmodule ExSwagger.ValidatorTest do
               "in" => "query",
               "required" => false,
               "type" => "integer"
-            }
+            },
           ]
         }
       }
@@ -52,14 +58,17 @@ defmodule ExSwagger.ValidatorTest do
   }
 
   @request %Request{
-    path: "/items/{scope}/{item_id}",
+    path: "/items/{SCOPE}/{item_id}",
     method: :get,
+    header_params: %{
+      "x-request-id" => "xyz"
+    },
     path_params: %{
-      "scope" => "foo",
+      "SCOPE" => "foo",
       "item_id" => "123"
     },
     query_params: %{
-      "latitude" => 11.11,
+      "Latitude" => 11.11,
       "longitude" => "22.22"
     }
   }
@@ -74,8 +83,13 @@ defmodule ExSwagger.ValidatorTest do
     assert validate(request, @schema) == {:error, :method_not_allowed}
   end
 
+  test "missing required header parameter" do
+    request = %Request{@request | header_params: %{}}
+    assert validate(request, @schema) == {:error, [parameter_missing: "x-request-id"]}
+  end
+
   test "missing required query parameter" do
-    request = %Request{@request | query_params: %{"latitude" => 11.11}}
+    request = %Request{@request | query_params: %{"Latitude" => 11.11}}
     assert validate(request, @schema) == {:error, [parameter_missing: "longitude"]}
   end
 
@@ -85,8 +99,8 @@ defmodule ExSwagger.ValidatorTest do
   end
 
   test "wrong query parameter type" do
-    request = %Request{@request | query_params: %{@request.query_params | "latitude" => "11.11foo"}}
-    assert validate(request, @schema) == {:error, [invalid_parameter_type: "latitude"]}
+    request = %Request{@request | query_params: %{@request.query_params | "Latitude" => "11.11foo"}}
+    assert validate(request, @schema) == {:error, [invalid_parameter_type: "Latitude"]}
   end
 
   test "optional query parameter with wrong type" do
@@ -94,23 +108,33 @@ defmodule ExSwagger.ValidatorTest do
     assert validate(request, @schema) == {:error, [invalid_parameter_type: "optional"]}
   end
 
+  test "path param names are case-sensitive" do
+    request = %Request{@request | path_params: %{"scope" => "foo", "item_id" => "123"}}
+    assert validate(request, @schema) == {:error, [parameter_missing: "SCOPE"]}
+  end
+
+  test "query param names are case-sensitive" do
+    request = %Request{@request | query_params: %{"latitude" => 11.11, "longitude" => 22.22}}
+    assert validate(request, @schema) == {:error, [parameter_missing: "Latitude"]}
+  end
+
   test "multiple validaton errors" do
     request = %Request{@request |
       path_params: %{"item_id" => "bar"},
-      query_params: %{"latitude" => 11.11, "optional" => ""}
+      query_params: %{"Latitude" => 11.11, "optional" => ""}
     }
     assert validate(request, @schema) == {:error, [
-      parameter_missing: "scope",
       empty_parameter: "optional",
       parameter_missing: "longitude",
       invalid_parameter_type: "item_id",
+      parameter_missing: "SCOPE",
     ]}
   end
 
   test "valid request with path and query parameters" do
     sanitized_request = %{@request |
-      path_params: %{"scope" => "foo", "item_id" => 123},
-      query_params: %{"latitude" => 11.11, "longitude" => 22.22}
+      path_params: %{"SCOPE" => "foo", "item_id" => 123},
+      query_params: %{"Latitude" => 11.11, "longitude" => 22.22}
     }
     assert validate(@request, @schema) === {:ok, sanitized_request}
   end

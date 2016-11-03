@@ -34,12 +34,11 @@ defmodule ExSwagger.Validator do
     validate_params(request, operation)
   end
 
-  defp validate_params(request, operation) do
-    parameters = Map.values(operation.parameters)
+  defp validate_params(request, %{parameters: parameters, schemata: schemata}) do
     result = Enum.reduce(parameters, %Result{request: request}, &(validate_param(&2, &1)))
     case result do
       %{errors: [], request: request} ->
-        case validate_request_against_schemata(request, operation.schemata) do
+        case validate_request_against_schemata(request, schemata) do
           [] -> {:ok, request}
           errors -> {:error, errors}
         end
@@ -52,13 +51,9 @@ defmodule ExSwagger.Validator do
     Enum.flat_map(schemata, &validate_request_against_schema(request, &1))
   end
 
-  defp validate_request_against_schema(request, {:path_params, schema}) do
-    validate_params_against_schema(request.path_params, schema) |> map_errors(:path)
-  end
-
-  defp validate_request_against_schema(request, {:query_params, schema}) do
-    validate_params_against_schema(request.query_params, schema) |> map_errors(:query)
-  end
+  defp validate_request_against_schema(request, {:header_params, schema}), do: validate_params_against_schema(request.header_params, schema) |> map_errors(:header)
+  defp validate_request_against_schema(request, {:path_params, schema}), do: validate_params_against_schema(request.path_params, schema) |> map_errors(:path)
+  defp validate_request_against_schema(request, {:query_params, schema}), do: validate_params_against_schema(request.query_params, schema) |> map_errors(:query)
 
   defp validate_params_against_schema(params, schema) do
     case ExJsonSchema.Validator.validate(schema, params) do
@@ -71,6 +66,10 @@ defmodule ExSwagger.Validator do
     Enum.map errors, fn %ValidationError{error: error, path: "#/" <> path} ->
       %ParameterError{error: error, parameter: path, in: in_}
     end
+  end
+
+  defp validate_param(%Result{request: %Request{header_params: header_params}} = result, %{"in" => "header"} = parameter) do
+    do_validate_param(result, parameter, header_params[parameter["name"]])
   end
 
   defp validate_param(%Result{request: %Request{path_params: path_params}} = result, %{"in" => "path"} = parameter) do
