@@ -332,16 +332,21 @@ defmodule ExSwagger.ValidatorTest do
                 "in" => "body",
                 "required" => true,
                 "schema" => %{
-                  "type" => "object",
-                  "required" => ["foo", "bar"],
-                  "properties" => %{
-                    "foo" => %{
-                      "type" => "string"
-                    }
-                  }
+                  "$ref" => "#/definitions/Item"
                 }
               }
             ]
+          }
+        }
+      },
+      "definitions" => %{
+        "Item" => %{
+          "type" => "object",
+          "required" => ["foo", "bar"],
+          "properties" => %{
+            "foo" => %{
+              "type" => "string"
+            }
           }
         }
       }

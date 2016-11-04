@@ -14,29 +14,30 @@ defmodule ExSwagger.Schema do
     multipleOf
   )
   @empty_parameter_schemata %{
-    header_params: %{"properties" => %{}},
-    path_params: %{"properties" => %{}},
-    query_params: %{"properties" => %{}},
-    body: %{}
+    header_params: %{schema: %{"properties" => %{}}},
+    path_params: %{schema: %{"properties" => %{}}},
+    query_params: %{schema: %{"properties" => %{}}},
+    body: %{schema: %{}}
   }
 
   def parse(%{} = schema) do
-    %{schema | "paths" => parse_paths(schema["paths"])}
+    root_schema = ExJsonSchema.Schema.resolve(schema)
+    %{schema | "paths" => parse_paths(root_schema)}
   end
 
-  defp parse_paths(paths) do
+  defp parse_paths(%ExJsonSchema.Schema.Root{schema: %{"paths" => paths}} = root_schema) do
     Enum.reduce paths, %{}, fn ({path, operations}, paths) ->
-      Map.put(paths, path, operations_with_path_global_parameters(operations))
+      Map.put(paths, path, operations_with_path_global_parameters(operations, root_schema))
     end
   end
 
-  defp operations_with_path_global_parameters(operations) do
+  defp operations_with_path_global_parameters(operations, root_schema) do
     path_global_parameters = operations["parameters"] || []
     Enum.reduce Map.drop(operations, ["parameters"]), %{}, fn ({path, operation}, operations) ->
       parameters = path_global_parameters |> merge_parameters(operation["parameters"]) |> downcase_header_parameter_names
       Map.put(operations, path, Map.merge(operation, %{
         parameters: parameters,
-        schemata: parameters_to_schema(parameters)
+        schemata: parameters_to_schema(parameters, root_schema)
       }))
     end
   end
@@ -54,12 +55,15 @@ defmodule ExSwagger.Schema do
     end)
   end
 
-  defp parameters_to_schema(parameters) do
-    Enum.reduce parameters, @empty_parameter_schemata, &parameter_to_schema/2
+  defp parameters_to_schema(parameters, root_schema) do
+    schemata = @empty_parameter_schemata
+    |> Enum.map(fn {key, val} -> {key, Map.put(val, :root_schema, root_schema)} end)
+    |> Enum.into(%{})
+    Enum.reduce parameters, schemata, &parameter_to_schema/2
   end
 
-  defp parameter_to_schema(%{"in" => "body", "schema" => schema}, acc), do: Map.put(acc, :body, schema)
+  defp parameter_to_schema(%{"in" => "body", "schema" => schema}, acc), do: put_in(acc, [:body, :schema], schema)
   defp parameter_to_schema(%{"name" => name, "in" => in_} = parameter, acc) do
-    put_in(acc, [:"#{in_}_params", "properties", name], Map.take(parameter, @parameter_schema_properties))
+    put_in(acc, [:"#{in_}_params", :schema, "properties", name], Map.take(parameter, @parameter_schema_properties))
   end
 end
