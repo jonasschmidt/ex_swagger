@@ -5,6 +5,8 @@ defmodule ExSwagger.Validator do
   defmodule Result, do: defstruct request: nil, errors: []
   defmodule ParameterError, do: defstruct [:error, :parameter, :in]
   defmodule BodyError, do: defstruct [:error, :path]
+  defmodule EmptyParameter, do: defstruct []
+  defmodule MissingParameter, do: defstruct []
 
   def validate(%Request{} = request, %{} = schema) do
     {:ok, schema} = Schema.parse(schema)
@@ -25,13 +27,27 @@ defmodule ExSwagger.Validator do
           [] -> {:ok, request}
           errors -> {:error, errors}
         end
-      %{errors: errors, request: _request} ->
-        {:error, errors}
+      %{errors: errors, request: request} ->
+        {:error, validate_request_against_schemata(request, schemata, errors)}
     end
+  end
+
+  defp validate_request_against_schemata(request, schemata, errors) do
+    schemata = schemata |> schemata_without_invalid_parameters(errors)
+    errors ++ validate_request_against_schemata(request, schemata)
   end
 
   defp validate_request_against_schemata(request, schemata) do
     Enum.flat_map(schemata, &validate_request_against_schema(request, &1))
+  end
+
+  defp schemata_without_invalid_parameters(schemata, errors) do
+    Enum.reduce errors, schemata, fn
+      %{in: :body}, schemata ->
+        schemata |> Map.drop([:body])
+      %{parameter: p, in: in_}, schemata ->
+        schemata |> put_in([:"#{in_}_params", :schema, "properties", p], %{})
+    end
   end
 
   defp validate_request_against_schema(request, {:header_params, schema}), do:
@@ -54,40 +70,41 @@ defmodule ExSwagger.Validator do
   end
 
   defp map_body_errors(errors) do
-    Enum.map errors, fn %ValidationError{} = error -> %BodyError{error: error.error, path: error.path} end
+    Enum.map errors, fn %ValidationError{error: error, path: path} -> %BodyError{error: error, path: path} end
   end
 
-  defp validate_param(%Result{request: %Request{header_params: params}} = result, %{"in" => "header"} = parameter), do:
+  defp validate_param(%Result{request: %Request{header_params: params}} = result, %{"in" => :header} = parameter), do:
     do_validate_param(result, parameter, params[parameter["name"]])
-  defp validate_param(%Result{request: %Request{path_params: params}} = result, %{"in" => "path"} = parameter), do:
+  defp validate_param(%Result{request: %Request{path_params: params}} = result, %{"in" => :path} = parameter), do:
     do_validate_param(result, parameter, params[parameter["name"]])
-  defp validate_param(%Result{request: %Request{query_params: params}} = result, %{"in" => "query"} = parameter), do:
+  defp validate_param(%Result{request: %Request{query_params: params}} = result, %{"in" => :query} = parameter), do:
     do_validate_param(result, parameter, params[parameter["name"]])
-  defp validate_param(%Result{request: %Request{body: _body}} = result, %{"in" => "body"}), do: result
+  defp validate_param(%Result{request: %Request{body: params}} = result, %{"in" => :body} = parameter), do:
+    do_validate_param(result, parameter, params)
 
-  defp do_validate_param(result, parameter, nil) do
+  defp do_validate_param(result, %{"name" => name, "in" => in_} = parameter, nil) do
     case parameter["required"] do
-      true -> result_with_error(result, :parameter_missing, parameter["name"])
+      true -> result_with_error(result, %ParameterError{error: %MissingParameter{}, parameter: name, in: in_})
       _ -> result
     end
   end
 
-  defp do_validate_param(result, parameter, "") do
-    result_with_error(result, :empty_parameter, parameter["name"])
+  defp do_validate_param(result, %{"name" => name, "in" => in_}, "") do
+    result_with_error(result, %ParameterError{error: %EmptyParameter{}, parameter: name, in: in_})
   end
 
+  defp do_validate_param(result, %{"in" => :body}, _value), do: result
+
   defp do_validate_param(result, parameter, value) do
-    case parse_value(value, parameter) do
-      :error -> result_with_error(result, :invalid_parameter_type, parameter["name"])
-      value -> overwrite_param(result, parameter, value)
-    end
+    value = parse_value(value, parameter)
+    overwrite_param(result, parameter, value)
   end
 
   defp parse_value(value, %{"type" => "string"}) when is_binary(value), do: value
   defp parse_value(value, %{"type" => "number"}) when is_float(value), do: value
-  defp parse_value(value, %{"type" => "number"}) when is_binary(value), do: numeric_parse_result(Float.parse(value))
+  defp parse_value(value, %{"type" => "number"}) when is_binary(value), do: numeric_parse_result(Float.parse(value), value)
   defp parse_value(value, %{"type" => "integer"}) when is_integer(value), do: value
-  defp parse_value(value, %{"type" => "integer"}) when is_binary(value), do: numeric_parse_result(Integer.parse(value))
+  defp parse_value(value, %{"type" => "integer"}) when is_binary(value), do: numeric_parse_result(Integer.parse(value), value)
   defp parse_value(value, %{"type" => "array"}) when is_list(value), do: value
   defp parse_value(value, %{"type" => "array"} = parameter) when is_binary(value), do: parse_array(value, parameter["collectionFormat"])
 
@@ -96,12 +113,12 @@ defmodule ExSwagger.Validator do
   defp parse_array(value, "tsv"), do: String.split(value, "\t")
   defp parse_array(value, "pipes"), do: String.split(value, "|")
 
-  defp numeric_parse_result(:error), do: :error
-  defp numeric_parse_result({value, ""}), do: value
-  defp numeric_parse_result({_value, _remainder}), do: :error
+  defp numeric_parse_result(:error, original_value), do: original_value
+  defp numeric_parse_result({value, ""}, _original_value), do: value
+  defp numeric_parse_result({_value, _remainder}, original_value), do: original_value
 
-  defp result_with_error(result, error, parameter_name) do
-    %{result | errors: [{error, parameter_name} | result.errors]}
+  defp result_with_error(result, error) do
+    %{result | errors: [error | result.errors]}
   end
 
   defp overwrite_param(result, parameter, value) do

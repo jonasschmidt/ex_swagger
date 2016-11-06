@@ -1,6 +1,7 @@
 defmodule ExSwagger.Schema do
   @swagger_schema ExSwagger.Schema.Swagger20.schema |> ExJsonSchema.Schema.resolve
   @parameter_schema_properties ~w(
+    type
     maximum
     exclusiveMaximum
     minimum
@@ -53,14 +54,14 @@ defmodule ExSwagger.Schema do
   end
 
   defp merge_parameters(global_parameters, parameters) do
-    Enum.reduce(global_parameters ++ parameters, %{}, fn parameter, acc ->
-      Map.put(acc, {parameter["name"], parameter["in"]}, parameter)
+    Enum.reduce(global_parameters ++ parameters, %{}, fn %{"name" => name, "in" => in_} = parameter, acc ->
+      Map.put(acc, {name, in_}, %{parameter | "in" => String.to_atom(in_)})
     end) |> Map.values
   end
 
   defp downcase_header_parameter_names(parameters) do
     parameters |> Enum.map(fn
-      %{"in" => "header"} = parameter -> %{parameter | "name" => String.downcase(parameter["name"])}
+      %{"in" => :header} = parameter -> %{parameter | "name" => String.downcase(parameter["name"])}
       parameter -> parameter
     end)
   end
@@ -72,7 +73,7 @@ defmodule ExSwagger.Schema do
     Enum.reduce parameters, schemata, &parameter_to_schema/2
   end
 
-  defp parameter_to_schema(%{"in" => "body", "schema" => schema}, acc), do: put_in(acc, [:body, :schema], schema)
+  defp parameter_to_schema(%{"in" => :body, "schema" => schema}, acc), do: put_in(acc, [:body, :schema], schema)
   defp parameter_to_schema(%{"name" => name, "in" => in_} = parameter, acc) do
     put_in(acc, [:"#{in_}_params", :schema, "properties", name], Map.take(parameter, @parameter_schema_properties))
   end

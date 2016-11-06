@@ -3,7 +3,7 @@ defmodule ExSwagger.ValidatorTest do
 
   import ExSwagger.Validator
   alias ExSwagger.Request
-  alias ExSwagger.Validator.{ParameterError, BodyError}
+  alias ExSwagger.Validator.{ParameterError, BodyError, EmptyParameter, MissingParameter}
   alias ExJsonSchema.Validator.Error, as: ValidationError
 
   @schema %{
@@ -34,7 +34,7 @@ defmodule ExSwagger.ValidatorTest do
             "type" => "string"
           },
         ],
-        "get" => %{
+        "post" => %{
           "parameters" => [
             %{
               "name" => "Latitude",
@@ -56,6 +56,25 @@ defmodule ExSwagger.ValidatorTest do
               "required" => false,
               "type" => "integer"
             },
+            %{
+              "name" => "body",
+              "in" => "body",
+              "required" => true,
+              "schema" => %{
+                "type" => "object",
+                "required" => ["foo"],
+                "properties" => %{
+                  "foo" => %{
+                    "required" => ["bar"],
+                    "properties" => %{
+                      "bar" => %{
+                        "type" => "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            },
           ],
           "responses" => %{
             "200" => %{
@@ -69,7 +88,7 @@ defmodule ExSwagger.ValidatorTest do
 
   @request %Request{
     path: "/items/{SCOPE}/{item_id}",
-    method: :get,
+    method: :post,
     header_params: %{
       "x-request-id" => "xyz"
     },
@@ -80,6 +99,11 @@ defmodule ExSwagger.ValidatorTest do
     query_params: %{
       "Latitude" => 11.11,
       "longitude" => "22.22"
+    },
+    body: %{
+      "foo" => %{
+        "bar" => 666
+      }
     }
   }
 
@@ -88,61 +112,72 @@ defmodule ExSwagger.ValidatorTest do
     query_params: %{"Latitude" => 11.11, "longitude" => 22.22}
   }
 
-  test "wrong path" do
+  test "invalid path" do
     request = %Request{@request | path: "/foo"}
     assert validate(request, @schema) == {:error, :path_not_found}
   end
 
-  test "wrong method" do
-    request = %Request{@request | method: :post}
+  test "invalid method" do
+    request = %Request{@request | method: :get}
     assert validate(request, @schema) == {:error, :method_not_allowed}
   end
 
   test "missing required header parameter" do
     request = %Request{@request | header_params: %{}}
-    assert validate(request, @schema) == {:error, [parameter_missing: "x-request-id"]}
+    assert validate(request, @schema) == {:error, [%ParameterError{error: %MissingParameter{}, in: :header, parameter: "x-request-id"}]}
   end
 
   test "missing required query parameter" do
     request = %Request{@request | query_params: %{"Latitude" => 11.11}}
-    assert validate(request, @schema) == {:error, [parameter_missing: "longitude"]}
+    assert validate(request, @schema) == {:error, [%ParameterError{error: %MissingParameter{}, in: :query, parameter: "longitude"}]}
+  end
+
+  test "missing required body parameter" do
+    request = %Request{@request | body: nil}
+    assert validate(request, @schema) == {:error, [%ParameterError{error: %MissingParameter{}, in: :body, parameter: "body"}]}
   end
 
   test "empty query parameter" do
     request = %Request{@request | query_params: %{@request.query_params | "longitude" => ""}}
-    assert validate(request, @schema) == {:error, [empty_parameter: "longitude"]}
+    assert validate(request, @schema) == {:error, [%ParameterError{error: %EmptyParameter{}, in: :query, parameter: "longitude"}]}
   end
 
-  test "wrong query parameter type" do
+  test "invalid query parameter type" do
     request = %Request{@request | query_params: %{@request.query_params | "Latitude" => "11.11foo"}}
-    assert validate(request, @schema) == {:error, [invalid_parameter_type: "Latitude"]}
+    assert validate(request, @schema) == {:error, [
+      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Number"]}, in: :query, parameter: "Latitude"}
+    ]}
   end
 
-  test "optional query parameter with wrong type" do
+  test "optional query parameter with invalid type" do
     request = %Request{@request | query_params: @request.query_params |> Map.put("optional", "123foo")}
-    assert validate(request, @schema) == {:error, [invalid_parameter_type: "optional"]}
+    assert validate(request, @schema) == {:error, [
+      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, in: :query, parameter: "optional"}
+    ]}
   end
 
   test "path param names are case-sensitive" do
     request = %Request{@request | path_params: %{"scope" => "foo", "item_id" => "123"}}
-    assert validate(request, @schema) == {:error, [parameter_missing: "SCOPE"]}
+    assert validate(request, @schema) == {:error, [%ParameterError{error: %MissingParameter{}, in: :path, parameter: "SCOPE"}]}
   end
 
   test "query param names are case-sensitive" do
     request = %Request{@request | query_params: %{"latitude" => 11.11, "longitude" => 22.22}}
-    assert validate(request, @schema) == {:error, [parameter_missing: "Latitude"]}
+    assert validate(request, @schema) == {:error, [%ParameterError{error: %MissingParameter{}, in: :query, parameter: "Latitude"}]}
   end
 
   test "multiple validaton errors" do
     request = %Request{@request |
       path_params: %{"item_id" => "bar"},
-      query_params: %{"Latitude" => 11.11, "optional" => ""}
+      query_params: %{"Latitude" => 11.11, "optional" => ""},
+      body: %{"foo" => %{"bar" => "baz"}}
     }
     assert validate(request, @schema) == {:error, [
-      empty_parameter: "optional",
-      parameter_missing: "longitude",
-      invalid_parameter_type: "item_id",
-      parameter_missing: "SCOPE",
+      %ParameterError{error: %EmptyParameter{}, in: :query, parameter: "optional"},
+      %ParameterError{error: %MissingParameter{}, in: :query, parameter: "longitude"},
+      %ParameterError{error: %MissingParameter{}, in: :path, parameter: "SCOPE"},
+      %BodyError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, path: "#/foo/bar"},
+      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, in: :path, parameter: "item_id"},
     ]}
   end
 
