@@ -83,6 +83,11 @@ defmodule ExSwagger.ValidatorTest do
     }
   }
 
+  @sanitized_request %{@request |
+    path_params: %{"SCOPE" => "foo", "item_id" => 123},
+    query_params: %{"Latitude" => 11.11, "longitude" => 22.22}
+  }
+
   test "wrong path" do
     request = %Request{@request | path: "/foo"}
     assert validate(request, @schema) == {:error, :path_not_found}
@@ -142,11 +147,12 @@ defmodule ExSwagger.ValidatorTest do
   end
 
   test "valid request with path and query parameters" do
-    sanitized_request = %{@request |
-      path_params: %{"SCOPE" => "foo", "item_id" => 123},
-      query_params: %{"Latitude" => 11.11, "longitude" => 22.22}
-    }
-    assert validate(@request, @schema) === {:ok, sanitized_request}
+    assert validate(@request, @schema) === {:ok, @sanitized_request}
+  end
+
+  test "passing through parameters that are already sanitized/typecast" do
+    request = %{@request | path_params: %{"SCOPE" => "foo", "item_id" => 123}}
+    assert validate(request, @schema) === {:ok, @sanitized_request}
   end
 
   test "overriding path-global parameter definition on operation level" do
