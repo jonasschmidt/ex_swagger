@@ -1,4 +1,5 @@
 defmodule ExSwagger.Schema do
+  @swagger_schema ExSwagger.Schema.Swagger20.schema |> ExJsonSchema.Schema.resolve
   @parameter_schema_properties ~w(
     maximum
     exclusiveMaximum
@@ -21,8 +22,17 @@ defmodule ExSwagger.Schema do
   }
 
   def parse(%{} = schema) do
-    root_schema = ExJsonSchema.Schema.resolve(schema)
-    %{schema | "paths" => parse_paths(root_schema)}
+    case validate(schema) do
+      :ok ->
+        root_schema = ExJsonSchema.Schema.resolve(schema)
+        {:ok, %{schema | "paths" => parse_paths(root_schema)}}
+      {:error, errors} ->
+        {:error, errors}
+    end
+  end
+
+  defp validate(schema) do
+    ExJsonSchema.Validator.validate(@swagger_schema, schema)
   end
 
   defp parse_paths(%ExJsonSchema.Schema.Root{schema: %{"paths" => paths}} = root_schema) do

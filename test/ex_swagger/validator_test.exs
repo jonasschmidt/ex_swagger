@@ -7,6 +7,11 @@ defmodule ExSwagger.ValidatorTest do
   alias ExJsonSchema.Validator.Error, as: ValidationError
 
   @schema %{
+    "swagger" => "2.0",
+    "info" => %{
+        "version" => "0.1",
+        "title" => "My awesome API"
+    },
     "paths" => %{
       "/items/{SCOPE}/{item_id}" => %{
         "parameters" => [
@@ -51,7 +56,12 @@ defmodule ExSwagger.ValidatorTest do
               "required" => false,
               "type" => "integer"
             },
-          ]
+          ],
+          "responses" => %{
+            "200" => %{
+              "description" => "OK"
+            }
+          }
         }
       }
     }
@@ -141,6 +151,11 @@ defmodule ExSwagger.ValidatorTest do
 
   test "overriding path-global parameter definition on operation level" do
     schema = %{
+      "swagger" => "2.0",
+      "info" => %{
+          "version" => "0.1",
+          "title" => "My awesome API"
+      },
       "paths" => %{
         "/items" => %{
           "parameters" => [
@@ -159,7 +174,12 @@ defmodule ExSwagger.ValidatorTest do
                 "required" => true,
                 "type" => "string"
               }
-            ]
+            ],
+            "responses" => %{
+              "200" => %{
+                "description" => "OK"
+              }
+            }
           }
         }
       }
@@ -170,6 +190,11 @@ defmodule ExSwagger.ValidatorTest do
 
   test "parameter validation" do
     schema = %{
+      "swagger" => "2.0",
+      "info" => %{
+          "version" => "0.1",
+          "title" => "My awesome API"
+      },
       "paths" => %{
         "/items" => %{
           "get" => %{
@@ -197,6 +222,7 @@ defmodule ExSwagger.ValidatorTest do
                 "name" => "min_length",
                 "in" => "path",
                 "type" => "string",
+                "required" => true,
                 "minLength" => 3
               },
               %{
@@ -209,6 +235,7 @@ defmodule ExSwagger.ValidatorTest do
                 "name" => "enum",
                 "in" => "path",
                 "type" => "string",
+                "required" => true,
                 "enum" => ~w(foo bar)
               },
               %{
@@ -217,7 +244,12 @@ defmodule ExSwagger.ValidatorTest do
                 "type" => "integer",
                 "multipleOf" => 2
               },
-            ]
+            ],
+            "responses" => %{
+              "200" => %{
+                "description" => "OK"
+              }
+            }
           }
         }
       }
@@ -254,6 +286,11 @@ defmodule ExSwagger.ValidatorTest do
 
   test "parsing array parameters" do
     schema = %{
+      "swagger" => "2.0",
+      "info" => %{
+          "version" => "0.1",
+          "title" => "My awesome API"
+      },
       "paths" => %{
         "/items" => %{
           "get" => %{
@@ -292,7 +329,12 @@ defmodule ExSwagger.ValidatorTest do
                 "type" => "array",
                 "collectionFormat" => "pipes"
               },
-            ]
+            ],
+            "responses" => %{
+              "200" => %{
+                "description" => "OK"
+              }
+            }
           }
         }
       }
@@ -323,6 +365,11 @@ defmodule ExSwagger.ValidatorTest do
 
   test "body validation" do
     schema = %{
+      "swagger" => "2.0",
+      "info" => %{
+          "version" => "0.1",
+          "title" => "My awesome API"
+      },
       "paths" => %{
         "/items" => %{
           "post" => %{
@@ -335,7 +382,12 @@ defmodule ExSwagger.ValidatorTest do
                   "$ref" => "#/definitions/Item"
                 }
               }
-            ]
+            ],
+            "responses" => %{
+              "200" => %{
+                "description" => "OK"
+              }
+            }
           }
         }
       },
