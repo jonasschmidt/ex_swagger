@@ -2,6 +2,7 @@ defmodule ExSwagger.Schema do
   @swagger_schema ExSwagger.Schema.Swagger20.schema |> ExJsonSchema.Schema.resolve
   @parameter_schema_properties ~w(
     type
+    items
     maximum
     exclusiveMaximum
     minimum

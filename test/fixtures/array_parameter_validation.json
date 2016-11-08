@@ -1,0 +1,31 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/items": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "type": "array",
+            "name": "ids",
+            "items": {
+              "type": "integer",
+              "maximum": 100,
+              "exclusiveMaximum": true,
+              "multipleOf": 2
+            },
+            "in": "query"
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "version": "0.1",
+    "title": "My awesome API"
+  }
+}

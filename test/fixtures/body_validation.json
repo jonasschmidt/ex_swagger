@@ -1,0 +1,42 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/items": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/definitions/Item"
+            },
+            "required": true,
+            "name": "body",
+            "in": "body"
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "version": "0.1",
+    "title": "My awesome API"
+  },
+  "definitions": {
+    "Item": {
+      "type": "object",
+      "required": [
+        "foo",
+        "bar"
+      ],
+      "properties": {
+        "foo": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

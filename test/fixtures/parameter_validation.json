@@ -1,0 +1,68 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/items": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "maximum",
+            "maximum": 100,
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "name": "minimum",
+            "minimum": 10,
+            "in": "header",
+            "exclusiveMinimum": true
+          },
+          {
+            "type": "string",
+            "name": "max_length",
+            "maxLength": 3,
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "required": true,
+            "name": "min_length",
+            "minLength": 3,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "pattern": "^\\d+$",
+            "name": "pattern",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "required": true,
+            "name": "enum",
+            "in": "path",
+            "enum": [
+              "foo",
+              "bar"
+            ]
+          },
+          {
+            "type": "integer",
+            "name": "multiple_of",
+            "multipleOf": 2,
+            "in": "query"
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "version": "0.1",
+    "title": "My awesome API"
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/items/{SCOPE}/{item_id}": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "type": "number",
+            "required": true,
+            "name": "Latitude",
+            "in": "query",
+            "format": "double"
+          },
+          {
+            "type": "number",
+            "required": true,
+            "name": "longitude",
+            "in": "query",
+            "format": "double"
+          },
+          {
+            "type": "integer",
+            "required": false,
+            "name": "optional",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "object",
+              "required": [
+                "foo"
+              ],
+              "properties": {
+                "foo": {
+                  "required": [
+                    "bar"
+                  ],
+                  "properties": {
+                    "bar": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            },
+            "required": true,
+            "name": "body",
+            "in": "body"
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "type": "string",
+          "required": true,
+          "name": "SCOPE",
+          "in": "path"
+        },
+        {
+          "type": "integer",
+          "required": true,
+          "name": "item_id",
+          "in": "path"
+        },
+        {
+          "type": "string",
+          "required": true,
+          "name": "X-Request-Id",
+          "in": "header"
+        }
+      ]
+    }
+  },
+  "info": {
+    "version": "0.1",
+    "title": "My awesome API"
+  }
+}

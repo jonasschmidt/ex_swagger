@@ -1,0 +1,54 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/items": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "type": "array",
+            "name": "already_array_ids",
+            "in": "query"
+          },
+          {
+            "type": "array",
+            "name": "ids",
+            "in": "query"
+          },
+          {
+            "type": "array",
+            "name": "csv_ids",
+            "in": "query",
+            "collectionFormat": "csv"
+          },
+          {
+            "type": "array",
+            "name": "ssv_ids",
+            "in": "query",
+            "collectionFormat": "ssv"
+          },
+          {
+            "type": "array",
+            "name": "tsv_ids",
+            "in": "query",
+            "collectionFormat": "tsv"
+          },
+          {
+            "type": "array",
+            "name": "pipes_ids",
+            "in": "query",
+            "collectionFormat": "pipes"
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "version": "0.1",
+    "title": "My awesome API"
+  }
+}

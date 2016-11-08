@@ -96,26 +96,32 @@ defmodule ExSwagger.Validator do
   defp do_validate_param(result, %{"in" => :body}, _value), do: result
 
   defp do_validate_param(result, parameter, value) do
-    value = parse_value(value, parameter)
+    value = sanitize_value(value, parameter)
     overwrite_param(result, parameter, value)
   end
 
-  defp parse_value(value, %{"type" => "string"}) when is_binary(value), do: value
-  defp parse_value(value, %{"type" => "number"}) when is_float(value), do: value
-  defp parse_value(value, %{"type" => "number"}) when is_binary(value), do: numeric_parse_result(Float.parse(value), value)
-  defp parse_value(value, %{"type" => "integer"}) when is_integer(value), do: value
-  defp parse_value(value, %{"type" => "integer"}) when is_binary(value), do: numeric_parse_result(Integer.parse(value), value)
-  defp parse_value(value, %{"type" => "array"}) when is_list(value), do: value
-  defp parse_value(value, %{"type" => "array"} = parameter) when is_binary(value), do: parse_array(value, parameter["collectionFormat"])
-
-  defp parse_array(value, collection_format) when collection_format in [nil, "csv"], do: String.split(value, ",")
-  defp parse_array(value, "ssv"), do: String.split(value, " ")
-  defp parse_array(value, "tsv"), do: String.split(value, "\t")
-  defp parse_array(value, "pipes"), do: String.split(value, "|")
+  defp sanitize_value(value, %{"type" => "string"}) when is_binary(value), do: value
+  defp sanitize_value(value, %{"type" => "number"}) when is_float(value), do: value
+  defp sanitize_value(value, %{"type" => "number"}) when is_binary(value), do: numeric_parse_result(Float.parse(value), value)
+  defp sanitize_value(value, %{"type" => "integer"}) when is_integer(value), do: value
+  defp sanitize_value(value, %{"type" => "integer"}) when is_binary(value), do: numeric_parse_result(Integer.parse(value), value)
+  defp sanitize_value(value, %{"type" => "array"}) when is_list(value), do: value
+  defp sanitize_value(value, %{"type" => "array"} = parameter) when is_binary(value), do: sanitize_array(value, parameter)
 
   defp numeric_parse_result(:error, original_value), do: original_value
   defp numeric_parse_result({value, ""}, _original_value), do: value
   defp numeric_parse_result({_value, _remainder}, original_value), do: original_value
+
+  defp sanitize_array(value, %{"collectionFormat" => "csv"} = parameter), do: value |> split_and_sanitize(",", parameter)
+  defp sanitize_array(value, %{"collectionFormat" => "ssv"} = parameter), do: value |> split_and_sanitize(" ", parameter)
+  defp sanitize_array(value, %{"collectionFormat" => "tsv"} = parameter), do: value |> split_and_sanitize("\t", parameter)
+  defp sanitize_array(value, %{"collectionFormat" => "pipes"} = parameter), do: value |> split_and_sanitize("|", parameter)
+  defp sanitize_array(value, parameter), do: value |> split_and_sanitize(",", parameter)
+
+  defp split_and_sanitize(value, delimiter, parameter) do
+    items_schema = parameter["items"] || %{"type" => "string"}
+    value |> String.split(delimiter) |> Enum.map(&(sanitize_value(&1, items_schema)))
+  end
 
   defp result_with_error(result, error) do
     %{result | errors: [error | result.errors]}
