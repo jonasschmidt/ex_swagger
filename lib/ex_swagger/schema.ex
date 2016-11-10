@@ -46,7 +46,7 @@ defmodule ExSwagger.Schema do
   defp operations_with_path_global_parameters(operations, root_schema) do
     path_global_parameters = operations["parameters"] || []
     Enum.reduce Map.drop(operations, ["parameters"]), %{}, fn ({path, operation}, operations) ->
-      parameters = path_global_parameters |> merge_parameters(operation["parameters"]) |> downcase_header_parameter_names
+      parameters = sanitize_parameters(path_global_parameters, operation["parameters"], root_schema)
       Map.put(operations, path, Map.merge(operation, %{
         parameters: parameters,
         schemata: parameters_to_schema(parameters, root_schema)
@@ -54,8 +54,22 @@ defmodule ExSwagger.Schema do
     end
   end
 
-  defp merge_parameters(global_parameters, parameters) do
-    Enum.reduce(global_parameters ++ parameters, %{}, fn %{"name" => name, "in" => in_} = parameter, acc ->
+  defp sanitize_parameters(path_global_parameters, operation_parameters, root_schema) do
+    path_global_parameters ++ operation_parameters
+    |> resolve_parameter_refs(root_schema)
+    |> merge_parameters
+    |> downcase_header_parameter_names
+  end
+
+  defp resolve_parameter_refs(parameters, root_schema) do
+    Enum.map parameters, fn
+      %{"$ref" => ref} -> ExJsonSchema.Schema.get_ref_schema(root_schema, ref)
+      parameter -> parameter
+    end
+  end
+
+  defp merge_parameters(parameters) do
+    Enum.reduce(parameters, %{}, fn %{"name" => name, "in" => in_} = parameter, acc ->
       Map.put(acc, {name, in_}, %{parameter | "in" => String.to_atom(in_)})
     end) |> Map.values
   end

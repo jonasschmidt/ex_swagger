@@ -1,13 +1,24 @@
 {
   "swagger": "2.0",
+  "parameters": {
+    "scope": {
+      "type": "string",
+      "required": true,
+      "name": "SCOPE",
+      "in": "path"
+    },
+    "optional": {
+      "type": "integer",
+      "required": false,
+      "name": "optional",
+      "in": "query"
+    }
+  },
   "paths": {
     "/items/{SCOPE}/{item_id}": {
       "parameters": [
         {
-          "type": "string",
-          "required": true,
-          "name": "SCOPE",
-          "in": "path"
+          "$ref": "#/parameters/scope"
         },
         {
           "type": "integer",
@@ -39,10 +50,7 @@
             "format": "double"
           },
           {
-            "type": "integer",
-            "required": false,
-            "name": "optional",
-            "in": "query"
+            "$ref": "#/parameters/optional"
           },
           {
             "type": "string",
