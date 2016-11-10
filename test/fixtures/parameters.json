@@ -2,12 +2,27 @@
   "swagger": "2.0",
   "paths": {
     "/items/{SCOPE}/{item_id}": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
+      "parameters": [
+        {
+          "type": "string",
+          "required": true,
+          "name": "SCOPE",
+          "in": "path"
         },
+        {
+          "type": "integer",
+          "required": true,
+          "name": "item_id",
+          "in": "path"
+        },
+        {
+          "type": "string",
+          "required": true,
+          "name": "X-Request-Id",
+          "in": "header"
+        }
+      ],
+      "post": {
         "parameters": [
           {
             "type": "number",
@@ -28,6 +43,13 @@
             "required": false,
             "name": "optional",
             "in": "query"
+          },
+          {
+            "type": "string",
+            "required": false,
+            "name": "empty",
+            "in": "query",
+            "allowEmptyValue": true
           },
           {
             "schema": {
@@ -52,28 +74,13 @@
             "name": "body",
             "in": "body"
           }
-        ]
-      },
-      "parameters": [
-        {
-          "type": "string",
-          "required": true,
-          "name": "SCOPE",
-          "in": "path"
-        },
-        {
-          "type": "integer",
-          "required": true,
-          "name": "item_id",
-          "in": "path"
-        },
-        {
-          "type": "string",
-          "required": true,
-          "name": "X-Request-Id",
-          "in": "header"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
         }
-      ]
+      }
     }
   },
   "info": {

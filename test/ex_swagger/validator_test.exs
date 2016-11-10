@@ -65,11 +65,25 @@ defmodule ExSwagger.ValidatorTest do
     ]}
   end
 
-  test "empty query parameter" do
-    request = %Request{@request | query_params: %{@request.query_params | "longitude" => ""}}
+  test "empty query parameters" do
+    request = %Request{@request | query_params: %{@request.query_params | "Latitude" => "", "longitude" => nil}}
     assert validate(request, fixture("parameters")) == {:error, [
-      %ParameterError{error: %EmptyParameter{}, in: :query, parameter: "longitude"}
+      %ParameterError{error: %EmptyParameter{}, in: :query, parameter: "longitude"},
+      %ParameterError{error: %EmptyParameter{}, in: :query, parameter: "Latitude"},
     ]}
+  end
+
+  test "allowed empty query parameter with nil value" do
+    request = %Request{@request | query_params: Map.put(@request.query_params, "empty", nil)}
+    assert validate(request, fixture("parameters")) == {:error, [
+      %ParameterError{error: %ValidationError.Type{actual: "Null", expected: ["String"]}, in: :query, parameter: "empty"}
+    ]}
+  end
+
+  test "allowed empty query parameter with empty string value" do
+    request = %Request{@request | query_params: Map.put(@request.query_params, "empty", "")}
+    sanitized_request = %Request{@sanitized_request | query_params: Map.put(@sanitized_request.query_params, "empty", "")}
+    assert validate(request, fixture("parameters")) == {:ok, sanitized_request}
   end
 
   test "invalid query parameter type" do

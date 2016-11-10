@@ -74,30 +74,35 @@ defmodule ExSwagger.Validator do
   end
 
   defp validate_param(%Result{request: %Request{header_params: params}} = result, %{"in" => :header} = parameter), do:
-    do_validate_param(result, parameter, params[parameter["name"]])
+    do_validate_param(result, parameter, params[parameter["name"]], params)
   defp validate_param(%Result{request: %Request{path_params: params}} = result, %{"in" => :path} = parameter), do:
-    do_validate_param(result, parameter, params[parameter["name"]])
+    do_validate_param(result, parameter, params[parameter["name"]], params)
   defp validate_param(%Result{request: %Request{query_params: params}} = result, %{"in" => :query} = parameter), do:
-    do_validate_param(result, parameter, params[parameter["name"]])
+    do_validate_param(result, parameter, params[parameter["name"]], params)
   defp validate_param(%Result{request: %Request{body: params}} = result, %{"in" => :body} = parameter), do:
     do_validate_param(result, parameter, params)
 
-  defp do_validate_param(result, %{"name" => name, "in" => in_} = parameter, nil) do
-    case parameter["required"] do
-      true -> result_with_error(result, %ParameterError{error: %MissingParameter{}, parameter: name, in: in_})
+  defp do_validate_param(result, parameter, value, params \\ %{})
+
+  defp do_validate_param(result, %{"name" => name, "in" => in_} = parameter, value, params) when value in [nil, ""] do
+    required = parameter["required"]
+
+    case Map.has_key?(params, name) do
+      true ->
+        case parameter["allowEmptyValue"] do
+          true -> result
+          _ -> result_with_error(result, %ParameterError{error: %EmptyParameter{}, parameter: name, in: in_})
+        end
+      false when required == true ->
+        result_with_error(result, %ParameterError{error: %MissingParameter{}, parameter: name, in: in_})
       _ -> result
     end
   end
 
-  defp do_validate_param(result, %{"name" => name, "in" => in_}, "") do
-    result_with_error(result, %ParameterError{error: %EmptyParameter{}, parameter: name, in: in_})
-  end
+  defp do_validate_param(result, %{"in" => :body}, _value, _params), do: result
 
-  defp do_validate_param(result, %{"in" => :body}, _value), do: result
-
-  defp do_validate_param(result, parameter, value) do
-    value = sanitize_value(value, parameter)
-    overwrite_param(result, parameter, value)
+  defp do_validate_param(result, parameter, value, _params) do
+    overwrite_param(result, parameter, sanitize_value(value, parameter))
   end
 
   defp sanitize_value(value, %{"type" => "string"}) when is_binary(value), do: value
