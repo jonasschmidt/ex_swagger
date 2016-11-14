@@ -7,6 +7,7 @@ defmodule ExSwagger.Validator do
   defmodule BodyError, do: defstruct [:error, :path]
   defmodule EmptyParameter, do: defstruct []
   defmodule MissingParameter, do: defstruct []
+  defmodule InvalidDiscriminator, do: defstruct allowed: []
 
   def validate(%Request{} = request, %{} = schema) do
     {:ok, schema} = Schema.parse(schema)
@@ -58,6 +59,21 @@ defmodule ExSwagger.Validator do
     validate_params_against_schema(request.query_params, schema) |> map_parameter_errors(:query)
   defp validate_request_against_schema(request, {:body, schema}), do:
     validate_params_against_schema(request.body, schema) |> map_body_errors
+
+  defp validate_params_against_schema(params, %{schema: %{"$ref" => ref}} = schema) do
+    ref_schema = ExJsonSchema.Schema.get_ref_schema(schema.root_schema, ref)
+    validate_params_against_schema(params, %{schema | schema: ref_schema})
+  end
+
+  defp validate_params_against_schema(params, %{schema: %{"discriminator" => discriminator, allowed_schemata: allowed}} = schema) do
+    case Enum.member?(allowed, params[discriminator]) do
+      true ->
+        ref_schema = ExJsonSchema.Schema.get_ref_schema(schema.root_schema, "#/definitions/#{params[discriminator]}")
+        ExJsonSchema.Validator.validation_errors(schema.root_schema, ref_schema, params)
+      false ->
+        [%ValidationError{error: %InvalidDiscriminator{allowed: allowed}, path: "#/#{discriminator}"}]
+    end
+  end
 
   defp validate_params_against_schema(params, schema) do
     ExJsonSchema.Validator.validation_errors(schema.root_schema, schema.schema, params)

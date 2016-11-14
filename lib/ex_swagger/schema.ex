@@ -26,8 +26,7 @@ defmodule ExSwagger.Schema do
   def parse(%{} = schema) do
     case validate(schema) do
       :ok ->
-        root_schema = ExJsonSchema.Schema.resolve(schema)
-        {:ok, %{schema | "paths" => parse_paths(root_schema)}}
+        {:ok, parse_schema(ExJsonSchema.Schema.resolve(schema))}
       {:error, errors} ->
         {:error, errors}
     end
@@ -37,10 +36,40 @@ defmodule ExSwagger.Schema do
     ExJsonSchema.Validator.validate(@swagger_schema, schema)
   end
 
-  defp parse_paths(%ExJsonSchema.Schema.Root{schema: %{"paths" => paths}} = root_schema) do
-    Enum.reduce paths, %{}, fn ({path, operations}, paths) ->
+  defp parse_schema(root_schema) do
+    root_schema
+    |> resolve_discriminators
+    |> resolve_paths
+  end
+
+  defp resolve_discriminators(root_schema) do
+    definitions = root_schema.schema["definitions"] || %{}
+
+    definitions = definitions
+    |> Enum.filter(fn {_name, definition} -> Map.has_key?(definition, "discriminator") end)
+    |> Keyword.keys
+    |> Enum.reduce(definitions, &definitions_with_allowed_discriminator_schemata/2)
+
+    %{root_schema | schema: Map.put(root_schema.schema, "definitions", definitions)}
+  end
+
+  defp definitions_with_allowed_discriminator_schemata(name, definitions) do
+    allowed = definitions
+    |> Enum.filter(fn {_name, definition} ->
+      Enum.any?(definition["allOf"] || [], &(List.last(&1["$ref"] || []) == name))
+    end)
+    |> Keyword.keys
+    |> MapSet.new
+    |> MapSet.put(name)
+
+    put_in(definitions, [name, :allowed_schemata], allowed)
+  end
+
+  defp resolve_paths(%ExJsonSchema.Schema.Root{schema: %{"paths" => paths}} = root_schema) do
+    paths = Enum.reduce paths, %{}, fn ({path, operations}, paths) ->
       Map.put(paths, path, operations_with_path_global_parameters(operations, root_schema))
     end
+    %{root_schema.schema | "paths" => paths}
   end
 
   defp operations_with_path_global_parameters(operations, root_schema) do

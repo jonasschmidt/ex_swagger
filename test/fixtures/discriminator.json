@@ -1,0 +1,87 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "0.1",
+    "title": "My awesome API"
+  },
+  "paths": {
+    "/items": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/definitions/Item"
+            },
+            "required": true,
+            "name": "body",
+            "in": "body"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Item": {
+      "type": "object",
+      "discriminator": "type",
+      "required": [
+        "type",
+        "item_id"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Foo",
+            "Bar"
+          ]
+        },
+        "item_id": {
+          "type": "integer"
+        }
+      }
+    },
+    "Foo": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Item"
+        },
+        {
+          "type": "object",
+          "required": [
+            "foo"
+          ],
+          "properties": {
+            "foo": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    },
+    "Bar": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Item"
+        },
+        {
+          "type": "object",
+          "required": [
+            "bar"
+          ],
+          "properties": {
+            "bar": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "Baz": {}
+  }
+}

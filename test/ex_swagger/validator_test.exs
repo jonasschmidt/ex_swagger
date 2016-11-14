@@ -5,7 +5,7 @@ defmodule ExSwagger.ValidatorTest do
   import ExSwagger.Validator
 
   alias ExSwagger.Request
-  alias ExSwagger.Validator.{ParameterError, BodyError, EmptyParameter, MissingParameter}
+  alias ExSwagger.Validator.{ParameterError, BodyError, EmptyParameter, MissingParameter, InvalidDiscriminator}
   alias ExJsonSchema.Validator.Error, as: ValidationError
 
   @request %Request{
@@ -240,5 +240,28 @@ defmodule ExSwagger.ValidatorTest do
       %BodyError{error: %ValidationError.Type{actual: "Integer", expected: ["String"]}, path: "#/foo"},
       %BodyError{error: %ValidationError.Required{missing: ["bar"]}, path: "#"}
     ]}
+  end
+
+  test "validating body schema with discriminator" do
+    request = %Request{
+      path: "/items",
+      method: :post,
+      body: %{
+        "item_id" => 123,
+        "type" => "Foo",
+        "foo" => 456
+      },
+    }
+
+    assert validate(%{request | body: %{request.body | "type" => "Bar"}}, fixture("discriminator")) == {:error, [
+      # %BodyError{error: %ValidationError.Required{missing: ["bar"]}, path: "#"}
+      %BodyError{error: %ValidationError.AllOf{invalid_indices: [1]}, path: "#"}
+    ]}
+
+    assert validate(%{request | body: %{request.body | "type" => "Baz"}}, fixture("discriminator")) == {:error, [
+      %BodyError{error: %InvalidDiscriminator{allowed: MapSet.new(~w(Item Foo Bar))}, path: "#/type"}
+    ]}
+
+    assert validate(request, fixture("discriminator")) == {:ok, request}
   end
 end
