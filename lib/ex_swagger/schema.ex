@@ -72,6 +72,8 @@ defmodule ExSwagger.Schema do
     %{root_schema.schema | "paths" => paths}
   end
 
+  defp operations_with_path_global_parameters(%{"$ref" => ref} = operations, root_schema), do:
+    operations_with_path_global_parameters(ExJsonSchema.Schema.get_ref_schema(root_schema, ref), root_schema)
   defp operations_with_path_global_parameters(operations, root_schema) do
     path_global_parameters = operations["parameters"] || []
     Enum.reduce Map.drop(operations, ["parameters"]), %{}, fn ({path, operation}, operations) ->

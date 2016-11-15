@@ -264,4 +264,18 @@ defmodule ExSwagger.ValidatorTest do
 
     assert validate(request, fixture("discriminator")) == {:ok, request}
   end
+
+  test "validating with a path item reference" do
+    request = %Request{
+      path: "/item/{item_id}",
+      method: :get,
+      path_params: %{
+        "item_id" => "foo",
+      },
+    }
+
+    assert validate(request, fixture("path_item_ref")) == {:error, [
+      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, in: :path, parameter: "item_id"}
+    ]}
+  end
 end
