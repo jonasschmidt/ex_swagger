@@ -21,15 +21,10 @@ defmodule ExSwagger.Validator do
   defp validate_operation(request, operation), do: validate_params(request, operation)
 
   defp validate_params(request, %{parameters: parameters, schemata: schemata}) do
-    result = Enum.reduce(parameters, %Result{request: request}, &(validate_param(&2, &1)))
-    case result do
-      %{errors: [], request: request} ->
-        case validate_request_against_schemata(request, schemata) do
-          [] -> {:ok, request}
-          errors -> {:error, errors}
-        end
-      %{errors: errors, request: request} ->
-        {:error, validate_request_against_schemata(request, schemata, errors)}
+    %{errors: errors, request: request} = Enum.reduce(parameters, %Result{request: request}, &(validate_param(&2, &1)))
+    case validate_request_against_schemata(request, schemata, errors) do
+      [] -> {:ok, request}
+      errors -> {:error, errors}
     end
   end
 
