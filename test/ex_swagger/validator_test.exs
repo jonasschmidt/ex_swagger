@@ -22,7 +22,7 @@ defmodule ExSwagger.ValidatorTest do
       "Latitude" => 11.11,
       "longitude" => "22.22"
     },
-    body: %{
+    body_params: %{
       "foo" => %{
         "bar" => 666
       }
@@ -59,7 +59,7 @@ defmodule ExSwagger.ValidatorTest do
   end
 
   test "missing required body parameter" do
-    request = %Request{@request | body: nil}
+    request = %Request{@request | body_params: nil}
     assert validate(request, fixture("parameters")) == {:error, [
       %ParameterError{error: %MissingParameter{}, in: :body, parameter: "body"}
     ]}
@@ -118,7 +118,7 @@ defmodule ExSwagger.ValidatorTest do
     request = %Request{@request |
       path_params: %{"item_id" => "bar"},
       query_params: %{"Latitude" => 11.11, "optional" => ""},
-      body: %{"foo" => %{"bar" => "baz"}}
+      body_params: %{"foo" => %{"bar" => "baz"}}
     }
     assert validate(request, fixture("parameters")) == {:error, [
       %ParameterError{error: %EmptyParameter{}, in: :query, parameter: "optional"},
@@ -231,7 +231,7 @@ defmodule ExSwagger.ValidatorTest do
     request = %Request{
       path: "/items",
       method: :post,
-      body: %{
+      body_params: %{
         "foo" => 123
       },
     }
@@ -246,19 +246,19 @@ defmodule ExSwagger.ValidatorTest do
     request = %Request{
       path: "/items",
       method: :post,
-      body: %{
+      body_params: %{
         "item_id" => 123,
         "type" => "Foo",
         "foo" => 456
       },
     }
 
-    assert validate(%{request | body: %{request.body | "type" => "Bar"}}, fixture("discriminator")) == {:error, [
+    assert validate(%{request | body_params: %{request.body_params | "type" => "Bar"}}, fixture("discriminator")) == {:error, [
       # %BodyError{error: %ValidationError.Required{missing: ["bar"]}, path: "#"}
       %BodyError{error: %ValidationError.AllOf{invalid_indices: [1]}, path: "#"}
     ]}
 
-    assert validate(%{request | body: %{request.body | "type" => "Baz"}}, fixture("discriminator")) == {:error, [
+    assert validate(%{request | body_params: %{request.body_params | "type" => "Baz"}}, fixture("discriminator")) == {:error, [
       %BodyError{error: %InvalidDiscriminator{allowed: MapSet.new(~w(Item Foo Bar))}, path: "#/type"}
     ]}
 

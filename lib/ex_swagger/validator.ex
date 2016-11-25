@@ -45,7 +45,7 @@ defmodule ExSwagger.Validator do
   defp schemata_without_invalid_parameters(schemata, errors) do
     Enum.reduce errors, schemata, fn
       %{in: :body}, schemata ->
-        schemata |> Map.drop([:body])
+        schemata |> Map.drop([:body_params])
       %{parameter: p, in: in_}, schemata ->
         schemata |> put_in([:"#{in_}_params", :schema, "properties", p], %{})
     end
@@ -57,8 +57,8 @@ defmodule ExSwagger.Validator do
     validate_params_against_schema(request.path_params, schema) |> map_parameter_errors(:path)
   defp validate_request_against_schema(request, {:query_params, schema}), do:
     validate_params_against_schema(request.query_params, schema) |> map_parameter_errors(:query)
-  defp validate_request_against_schema(request, {:body, schema}), do:
-    validate_params_against_schema(request.body, schema) |> map_body_errors
+  defp validate_request_against_schema(request, {:body_params, schema}), do:
+    validate_params_against_schema(request.body_params, schema) |> map_body_errors
 
   defp validate_params_against_schema(params, %{schema: %{"$ref" => ref}} = schema) do
     ref_schema = ExJsonSchema.Schema.get_ref_schema(schema.root_schema, ref)
@@ -95,7 +95,7 @@ defmodule ExSwagger.Validator do
     do_validate_param(result, parameter, params[parameter["name"]], params)
   defp validate_param(%Result{request: %Request{query_params: params}} = result, %{"in" => :query} = parameter), do:
     do_validate_param(result, parameter, params[parameter["name"]], params)
-  defp validate_param(%Result{request: %Request{body: params}} = result, %{"in" => :body} = parameter), do:
+  defp validate_param(%Result{request: %Request{body_params: params}} = result, %{"in" => :body} = parameter), do:
     do_validate_param(result, parameter, params)
 
   defp do_validate_param(result, parameter, value, params \\ %{})

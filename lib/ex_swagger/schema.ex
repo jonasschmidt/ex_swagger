@@ -20,7 +20,7 @@ defmodule ExSwagger.Schema do
     header_params: %{schema: %{"properties" => %{}}},
     path_params: %{schema: %{"properties" => %{}}},
     query_params: %{schema: %{"properties" => %{}}},
-    body: %{schema: %{}}
+    body_params: %{schema: %{}}
   }
 
   def parse(%{} = schema) do
@@ -119,7 +119,7 @@ defmodule ExSwagger.Schema do
     Enum.reduce parameters, schemata, &parameter_to_schema/2
   end
 
-  defp parameter_to_schema(%{"in" => :body, "schema" => schema}, acc), do: put_in(acc, [:body, :schema], schema)
+  defp parameter_to_schema(%{"in" => :body, "schema" => schema}, acc), do: put_in(acc, [:body_params, :schema], schema)
   defp parameter_to_schema(%{"name" => name, "in" => in_} = parameter, acc) do
     put_in(acc, [:"#{in_}_params", :schema, "properties", name], Map.take(parameter, @parameter_schema_properties))
   end
