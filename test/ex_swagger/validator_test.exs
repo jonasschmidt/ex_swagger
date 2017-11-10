@@ -4,8 +4,8 @@ defmodule ExSwagger.ValidatorTest do
   import TestHelper
   import ExSwagger.Validator
 
-  alias ExSwagger.Request
-  alias ExSwagger.Validator.{ParameterError, BodyError, EmptyParameter, MissingParameter, InvalidDiscriminator}
+  alias ExSwagger.{Request, Response}
+  alias ExSwagger.Validator.{ParameterError, BodyError, HeaderError, EmptyParameter, MissingParameter, InvalidDiscriminator}
   alias ExJsonSchema.Validator.Error, as: ValidationError
 
   @request %Request{
@@ -76,7 +76,7 @@ defmodule ExSwagger.ValidatorTest do
   test "allowed empty query parameter with nil value" do
     request = %Request{@request | query_params: Map.put(@request.query_params, "empty", nil)}
     assert validate(request, fixture("parameters")) == {:error, [
-      %ParameterError{error: %ValidationError.Type{actual: "Null", expected: ["String"]}, in: :query, parameter: "empty"}
+      %ParameterError{error: %ValidationError.Type{actual: "null", expected: ["string"]}, in: :query, parameter: "empty"}
     ]}
   end
 
@@ -89,14 +89,14 @@ defmodule ExSwagger.ValidatorTest do
   test "invalid query parameter type" do
     request = %Request{@request | query_params: %{@request.query_params | "Latitude" => "11.11foo"}}
     assert validate(request, fixture("parameters")) == {:error, [
-      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Number"]}, in: :query, parameter: "Latitude"}
+      %ParameterError{error: %ValidationError.Type{actual: "string", expected: ["number"]}, in: :query, parameter: "Latitude"}
     ]}
   end
 
   test "optional query parameter with invalid type" do
     request = %Request{@request | query_params: @request.query_params |> Map.put("optional", "123foo")}
     assert validate(request, fixture("parameters")) == {:error, [
-      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, in: :query, parameter: "optional"}
+      %ParameterError{error: %ValidationError.Type{actual: "string", expected: ["integer"]}, in: :query, parameter: "optional"}
     ]}
   end
 
@@ -124,8 +124,8 @@ defmodule ExSwagger.ValidatorTest do
       %ParameterError{error: %EmptyParameter{}, in: :query, parameter: "optional"},
       %ParameterError{error: %MissingParameter{}, in: :query, parameter: "longitude"},
       %ParameterError{error: %MissingParameter{}, in: :path, parameter: "SCOPE"},
-      %BodyError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, path: "#/foo/bar"},
-      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, in: :path, parameter: "item_id"},
+      %BodyError{error: %ValidationError.Type{actual: "string", expected: ["integer"]}, path: "#/foo/bar"},
+      %ParameterError{error: %ValidationError.Type{actual: "string", expected: ["integer"]}, in: :path, parameter: "item_id"},
     ]}
   end
 
@@ -207,8 +207,8 @@ defmodule ExSwagger.ValidatorTest do
     }
 
     assert validate(request, fixture("array_parameter_validation")) == {:error, [
-      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, in: :query, parameter: "ids/0"},
-      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, in: :query, parameter: "ids/1"},
+      %ParameterError{error: %ValidationError.Type{actual: "string", expected: ["integer"]}, in: :query, parameter: "ids/0"},
+      %ParameterError{error: %ValidationError.Type{actual: "string", expected: ["integer"]}, in: :query, parameter: "ids/1"},
       %ParameterError{error: %ValidationError.Maximum{exclusive?: true, expected: 100}, in: :query, parameter: "ids/2"}
     ]}
   end
@@ -237,7 +237,7 @@ defmodule ExSwagger.ValidatorTest do
     }
 
     assert validate(request, fixture("body_validation")) == {:error, [
-      %BodyError{error: %ValidationError.Type{actual: "Integer", expected: ["String"]}, path: "#/foo"},
+      %BodyError{error: %ValidationError.Type{actual: "integer", expected: ["string"]}, path: "#/foo"},
       %BodyError{error: %ValidationError.Required{missing: ["bar"]}, path: "#"}
     ]}
   end
@@ -254,12 +254,13 @@ defmodule ExSwagger.ValidatorTest do
     }
 
     assert validate(%{request | body_params: %{request.body_params | "type" => "Bar"}}, fixture("discriminator")) == {:error, [
-      # %BodyError{error: %ValidationError.Required{missing: ["bar"]}, path: "#"}
-      %BodyError{error: %ValidationError.AllOf{invalid_indices: [1]}, path: "#"}
+      %BodyError{error: %ValidationError.AllOf{invalid: [
+        %ValidationError.InvalidAtIndex{errors: [%ValidationError{error: %ValidationError.Required{missing: ["bar"]}, path: "#"}], index: 1}
+      ]}, path: "#"}
     ]}
 
     assert validate(%{request | body_params: %{request.body_params | "type" => "Baz"}}, fixture("discriminator")) == {:error, [
-      %BodyError{error: %InvalidDiscriminator{allowed: MapSet.new(~w(Item Foo Bar))}, path: "#/type"}
+      %BodyError{error: %InvalidDiscriminator{allowed: ~w(Bar Foo Item)}, path: "#/type"}
     ]}
 
     assert validate(request, fixture("discriminator")) == {:ok, request}
@@ -275,7 +276,39 @@ defmodule ExSwagger.ValidatorTest do
     }
 
     assert validate(request, fixture("path_item_ref")) == {:error, [
-      %ParameterError{error: %ValidationError.Type{actual: "String", expected: ["Integer"]}, in: :path, parameter: "item_id"}
+      %ParameterError{error: %ValidationError.Type{actual: "string", expected: ["integer"]}, in: :path, parameter: "item_id"}
+    ]}
+  end
+
+  test "validating response headers" do
+    request = %Request{path: "/items", method: :post}
+    response = %Response{
+      request: request,
+      status: 200,
+      headers: %{
+        "x-request-id" => "123abc",
+        "x-foo" => "bar"
+      },
+      body: %{
+        "item_id" => 123
+      },
+    }
+
+    assert validate(response, fixture("response")) == {:error, [
+      %HeaderError{error: %ValidationError.Type{actual: "string", expected: ["integer"]}, header: "x-request-id"}
+    ]}
+  end
+
+  test "validating a response body" do
+    request = %Request{path: "/items", method: :post}
+    response = %Response{request: request, status: 200, body: %{"item_id" => "123"}}
+
+    assert validate(response, fixture("response")) == {:error, [
+      %BodyError{error: %ValidationError.Type{actual: "string", expected: ["integer"]}, path: "#/item_id"}
+    ]}
+
+    assert validate(%{response | status: 201}, fixture("response")) == {:error, [
+      %BodyError{error: %ValidationError.Type{actual: "string", expected: ["integer"]}, path: "#/item_id"}
     ]}
   end
 end

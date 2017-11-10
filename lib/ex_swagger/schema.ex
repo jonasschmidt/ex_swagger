@@ -48,19 +48,22 @@ defmodule ExSwagger.Schema do
     definitions = definitions
     |> Enum.filter(fn {_name, definition} -> Map.has_key?(definition, "discriminator") end)
     |> Keyword.keys
-    |> Enum.reduce(definitions, &definitions_with_allowed_discriminator_schemata/2)
+    |> Enum.reduce(definitions, &definitions_with_allowed_discriminator_schemata(&1, &2, root_schema))
 
     %{root_schema | schema: Map.put(root_schema.schema, "definitions", definitions)}
   end
 
-  defp definitions_with_allowed_discriminator_schemata(name, definitions) do
+  defp definitions_with_allowed_discriminator_schemata(name, definitions, root_schema) do
     allowed = definitions
     |> Enum.filter(fn {_name, definition} ->
       Enum.any?(definition["allOf"] || [], &(List.last(&1["$ref"] || []) == name))
     end)
     |> Keyword.keys
-    |> MapSet.new
-    |> MapSet.put(name)
+    |> Enum.concat([name])
+    |> Enum.reduce(%{}, fn discriminator, acc ->
+      fragment = ExJsonSchema.Schema.get_fragment!(root_schema, "#/definitions/#{discriminator}")
+      Map.put(acc, discriminator, fragment)
+    end)
 
     put_in(definitions, [name, :allowed_schemata], allowed)
   end
@@ -69,20 +72,35 @@ defmodule ExSwagger.Schema do
     paths = Enum.reduce paths, %{}, fn ({path, operations}, paths) ->
       Map.put(paths, path, operations_with_path_global_parameters(operations, root_schema))
     end
-    %{root_schema.schema | "paths" => paths}
+    %{root_schema | schema: %{root_schema.schema | "paths" => paths}}
   end
 
-  defp operations_with_path_global_parameters(%{"$ref" => ref} = operations, root_schema), do:
-    operations_with_path_global_parameters(ExJsonSchema.Schema.get_ref_schema(root_schema, ref), root_schema)
+  defp operations_with_path_global_parameters(%{"$ref" => ref}, root_schema), do:
+    operations_with_path_global_parameters(ExJsonSchema.Schema.get_fragment!(root_schema, ref), root_schema)
   defp operations_with_path_global_parameters(operations, root_schema) do
     path_global_parameters = operations["parameters"] || []
-    Enum.reduce Map.drop(operations, ["parameters"]), %{}, fn ({path, operation}, operations) ->
+    operations
+    |> Map.drop(["parameters"])
+    |> Enum.reduce(%{}, fn ({path, operation}, operations) ->
       parameters = sanitize_parameters(path_global_parameters, operation["parameters"], root_schema)
-      Map.put(operations, path, Map.merge(operation, %{
+      Map.put(operations, path, %{
         parameters: parameters,
-        schemata: parameters_to_schema(parameters, root_schema)
-      }))
-    end
+        schemata: parameters_to_schema(parameters, root_schema),
+        responses: resolve_response_refs(operation, root_schema)
+      })
+    end)
+  end
+
+  defp resolve_response_refs(%{"responses" => responses}, root_schema) do
+    Enum.reduce(responses, responses, fn {status, response}, acc ->
+      case response do
+        %{"$ref" => ref} ->
+          fragment = ExJsonSchema.Schema.get_fragment!(root_schema, ref)
+          put_in(acc, [status, "schema"], fragment)
+        _ ->
+          acc
+      end
+    end)
   end
 
   defp sanitize_parameters(path_global_parameters, operation_parameters, root_schema) do
@@ -94,7 +112,7 @@ defmodule ExSwagger.Schema do
 
   defp resolve_parameter_refs(parameters, root_schema) do
     Enum.map parameters, fn
-      %{"$ref" => ref} -> ExJsonSchema.Schema.get_ref_schema(root_schema, ref)
+      %{"$ref" => ref} -> ExJsonSchema.Schema.get_fragment!(root_schema, ref)
       parameter -> parameter
     end
   end
@@ -119,7 +137,13 @@ defmodule ExSwagger.Schema do
     Enum.reduce parameters, schemata, &parameter_to_schema/2
   end
 
-  defp parameter_to_schema(%{"in" => :body, "schema" => schema}, acc), do: put_in(acc, [:body_params, :schema], schema)
+  defp parameter_to_schema(%{"in" => :body, "schema" => schema}, acc) do
+    schema = case schema do
+      %{"$ref" => ref} -> ExJsonSchema.Schema.get_fragment!(acc.body_params.root_schema, ref)
+      schema -> schema
+    end
+    put_in(acc, [:body_params, :schema], schema)
+  end
   defp parameter_to_schema(%{"name" => name, "in" => in_} = parameter, acc) do
     put_in(acc, [:"#{in_}_params", :schema, "properties", name], Map.take(parameter, @parameter_schema_properties))
   end

@@ -1,0 +1,47 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "0.1",
+    "title": "My awesome API"
+  },
+  "paths": {
+    "/items": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "x-request-id": {
+                "type": "integer"
+              }
+            },
+            "schema": {
+              "type": "object",
+              "required": ["item_id"],
+              "properties": {
+                "item_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "201": {
+            "$ref": "#/definitions/Item"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Item": {
+      "type": "object",
+      "required": ["item_id"],
+      "properties": {
+        "item_id": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

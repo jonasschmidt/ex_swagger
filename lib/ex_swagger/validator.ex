@@ -1,18 +1,64 @@
 defmodule ExSwagger.Validator do
-  alias ExSwagger.{Request, Schema}
+  alias ExSwagger.{Request, Response, Schema}
   alias ExJsonSchema.Validator.Error, as: ValidationError
 
   defmodule Result, do: defstruct request: nil, errors: []
   defmodule ParameterError, do: defstruct [:error, :parameter, :in]
   defmodule BodyError, do: defstruct [:error, :path]
+  defmodule HeaderError, do: defstruct [:error, :header]
   defmodule EmptyParameter, do: defstruct []
   defmodule MissingParameter, do: defstruct []
   defmodule InvalidDiscriminator, do: defstruct allowed: []
 
   def validate(%Request{} = request, %{} = schema) do
-    {:ok, schema} = Schema.parse(schema)
-    validate_path(request, schema["paths"][request.path])
+    {:ok, root_schema} = Schema.parse(schema)
+    validate_path(request, root_schema.schema["paths"][request.path])
   end
+
+  def validate(%Response{} = response, %{} = schema) do
+    {:ok, root_schema} = Schema.parse(schema)
+    operation = get_in(root_schema.schema, ["paths", response.request.path, to_string(response.request.method)])
+    validate_response_with_operation(response, operation, root_schema)
+  end
+
+  defp validate_response_with_operation(response, operation, root_schema) do
+    response_item = operation.responses[to_string(response.status)]
+    errors = validate_response_headers(response, response_item, root_schema) ++
+      validate_response_body(response, response_item, root_schema)
+    case errors do
+      [] -> :ok
+      errors -> {:error, errors}
+    end
+  end
+
+  defp validate_response_headers(response, %{"headers" => header_objects}, root_schema) do
+    headers = sanitize_response_headers(response.headers, header_objects)
+    errors = ExJsonSchema.Validator.validation_errors(root_schema, %{"properties" => header_objects}, headers)
+    Enum.map errors, fn %ValidationError{error: error, path: "#/" <> header} ->
+      %HeaderError{error: error, header: header}
+    end
+  end
+  defp validate_response_headers(_response, _response_item, _root_schema), do: []
+
+  defp sanitize_response_headers(headers, header_objects) do
+    Enum.reduce headers, %{}, fn {k, v}, acc ->
+      case header_objects[k] do
+        nil -> acc
+        header_object -> Map.put(acc, k, sanitize_value(v, header_object))
+      end
+    end
+  end
+
+  defp validate_response_body(response, response_item, root_schema) do
+    errors = do_validate_response_body(response, response_item, root_schema)
+    Enum.map errors, fn %ValidationError{error: error, path: path} ->
+      %BodyError{error: error, path: path}
+    end
+  end
+
+  defp do_validate_response_body(_response, nil, _root_schema), do: :error
+  defp do_validate_response_body(response, %{"schema" => schema}, root_schema), do:
+    ExJsonSchema.Validator.validation_errors(root_schema, schema, response.body)
 
   defp validate_path(_request, nil), do: {:error, :path_not_found}
   defp validate_path(request, path_item), do: validate_operation(request, path_item[to_string(request.method)])
@@ -55,21 +101,14 @@ defmodule ExSwagger.Validator do
   defp validate_request_against_schema(request, {:body_params, schema}), do:
     validate_params_against_schema(request.body_params, schema) |> map_body_errors
 
-  defp validate_params_against_schema(params, %{schema: %{"$ref" => ref}} = schema) do
-    ref_schema = ExJsonSchema.Schema.get_ref_schema(schema.root_schema, ref)
-    validate_params_against_schema(params, %{schema | schema: ref_schema})
-  end
-
   defp validate_params_against_schema(params, %{schema: %{"discriminator" => discriminator, allowed_schemata: allowed}} = schema) do
-    case Enum.member?(allowed, params[discriminator]) do
-      true ->
-        ref_schema = ExJsonSchema.Schema.get_ref_schema(schema.root_schema, "#/definitions/#{params[discriminator]}")
-        ExJsonSchema.Validator.validation_errors(schema.root_schema, ref_schema, params)
-      false ->
-        [%ValidationError{error: %InvalidDiscriminator{allowed: allowed}, path: "#/#{discriminator}"}]
+    case allowed[params[discriminator]] do
+      nil ->
+        [%ValidationError{error: %InvalidDiscriminator{allowed: Map.keys(allowed)}, path: "#/#{discriminator}"}]
+      fragment ->
+        ExJsonSchema.Validator.validation_errors(schema.root_schema, fragment, params)
     end
   end
-
   defp validate_params_against_schema(params, schema) do
     ExJsonSchema.Validator.validation_errors(schema.root_schema, schema.schema, params)
   end
